@@ -1,0 +1,25 @@
+name: fairprice
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fairprice-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fairprice
+      POSTGRES_PASSWORD: fairprice_local_dev
+      POSTGRES_USER: fairprice
+      TZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - fairprice_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fairprice -d fairprice"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  fairprice_postgres_data:

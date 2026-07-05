@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum DiscoverySource {
+  KEYWORD
+  GOLDBOX
+  CATEGORY_BEST
+  USER_URL
+}
+
+enum KeywordSourceType {
+  MANUAL
+  COUPANG_DISCOVERY
+  USER_ACTIVITY
+  AI_EXPANSION
+  EXTERNAL_TREND
+}
+
+enum KeywordCandidateStatus {
+  NEW
+  APPROVED
+  REJECTED
+}
+
+enum CollectionJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum CronRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model KeywordSource {
+  id          String            @id @default(cuid())
+  name        String
+  type        KeywordSourceType
+  isActive    Boolean           @default(true) @map("is_active")
+  priority    Int               @default(50)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  candidates  KeywordCandidate[]
+
+  @@unique([name, type])
+  @@index([isActive, priority])
+  @@map("keyword_sources")
+}
+
+model KeywordCandidate {
+  id                String                 @id @default(cuid())
+  keyword           String
+  normalizedKeyword String                 @unique @map("normalized_keyword")
+  sourceId          String?                @map("source_id")
+  sourceType        KeywordSourceType      @default(MANUAL) @map("source_type")
+  sourceKey         String?                @map("source_key")
+  score             Int                    @default(0)
+  status            KeywordCandidateStatus @default(NEW)
+  note              String?
+  lastCollectedAt   DateTime?              @map("last_collected_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+  source            KeywordSource?         @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([status, score])
+  @@index([sourceType])
+  @@map("keyword_candidates")
+}
+
+model CollectionRule {
+  id              String   @id @default(cuid())
+  keyword         String   @unique
+  limit           Int      @default(10)
+  minDiscountRate Int      @default(10) @map("min_discount_rate")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  products        CollectionRuleProduct[]
+  jobs            CollectionJob[]
+
+  @@index([isActive])
+  @@map("collection_rules")
+}
+
+model CollectionJob {
+  id               String              @id @default(cuid())
+  collectionRuleId String              @map("collection_rule_id")
+  keyword          String
+  limit            Int                 @default(10)
+  status           CollectionJobStatus @default(PENDING)
+  priority         Int                 @default(50)
+  runAfter         DateTime            @default(now()) @map("run_after")
+  attempts         Int                 @default(0)
+  startedAt        DateTime?           @map("started_at")
+  finishedAt       DateTime?           @map("finished_at")
+  summary          Json?
+  errorMessage     String?             @map("error_message")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  collectionRule   CollectionRule      @relation(fields: [collectionRuleId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAfter, priority])
+  @@index([collectionRuleId, status])
+  @@map("collection_jobs")
+}
+
+model CronRun {
+  id             String        @id @default(cuid())
+  status         CronRunStatus @default(RUNNING)
+  requestedSteps Json          @map("requested_steps")
+  options        Json?
+  summary        Json?
+  succeededSteps Int           @default(0) @map("succeeded_steps")
+  failedSteps    Int           @default(0) @map("failed_steps")
+  durationMs     Int?          @map("duration_ms")
+  errorMessage   String?       @map("error_message")
+  startedAt      DateTime      @default(now()) @map("started_at")
+  finishedAt     DateTime?     @map("finished_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([status, startedAt])
+  @@index([startedAt])
+  @@map("cron_runs")
+}
+
+model CollectionRuleProduct {
+  id               String         @id @default(cuid())
+  collectionRuleId String         @map("collection_rule_id")
+  productId        String         @map("product_id")
+  firstSeenAt      DateTime       @default(now()) @map("first_seen_at")
+  lastSeenAt       DateTime       @default(now()) @map("last_seen_at")
+  collectionRule   CollectionRule @relation(fields: [collectionRuleId], references: [id], onDelete: Cascade)
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionRuleId, productId])
+  @@index([productId])
+  @@map("collection_rule_products")
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  name                 String?
+  role                 UserRole              @default(USER)
+  passwordHash         String?               @map("password_hash")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  favoriteProducts     UserFavoriteProduct[]
+  alertRules           AlertRule[]
+  notificationLogs     NotificationLog[]
+  adminProductNotes    AdminProductNote[]    @relation("AdminProductNotes")
+  clickLogs            ClickLog[]
+  passwordResetTokens  PasswordResetToken[]
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  parentId  String?    @map("parent_id")
+  sortOrder Int        @default(0) @map("sort_order")
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
+  alertRules AlertRule[]
+
+  @@index([parentId])
+  @@index([isActive, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id             String                @id @default(cuid())
+  coupangExternalId String?            @unique @map("coupang_external_id")
+  coupangProductId String?             @map("coupang_product_id")
+  coupangItemId String?                @map("coupang_item_id")
+  coupangVendorItemId String?          @map("coupang_vendor_item_id")
+  categoryId     String                @map("category_id")
+  title          String
+  slug           String                @unique
+  brand          String?
+  description    String?
+  imageUrl       String?               @map("image_url")
+  coupangUrl     String                @map("coupang_url")
+  partnerUrl     String                @map("partner_url")
+  originalPrice  Int                   @map("original_price")
+  currentPrice   Int                   @map("current_price")
+  discountRate   Int                   @map("discount_rate")
+  isActive       Boolean               @default(true) @map("is_active")
+  isFeatured     Boolean               @default(false) @map("is_featured")
+  lastCheckedAt  DateTime?             @map("last_checked_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  category       Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  priceHistories ProductPriceHistory[]
+  favoriteUsers  UserFavoriteProduct[]
+  alertRules     AlertRule[]
+  notificationLogs NotificationLog[]
+  adminNotes     AdminProductNote[]
+  clickLogs      ClickLog[]
+  collectionRules CollectionRuleProduct[]
+  discoveries ProductDiscovery[]
+
+  @@index([categoryId, isActive])
+  @@index([coupangProductId])
+  @@index([discountRate])
+  @@index([currentPrice])
+  @@index([isFeatured, createdAt])
+  @@map("products")
+}
+
+model ProductDiscovery {
+  id          String          @id @default(cuid())
+  productId   String          @map("product_id")
+  source      DiscoverySource
+  sourceKey   String?         @map("source_key")
+  rank        Int?
+  score       Int             @default(0)
+  discoveredAt DateTime       @default(now()) @map("discovered_at")
+  lastSeenAt  DateTime        @default(now()) @map("last_seen_at")
+  product     Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, source, sourceKey])
+  @@index([source, score])
+  @@map("product_discoveries")
+}
+
+model ProductPriceHistory {
+  id            String   @id @default(cuid())
+  productId     String   @map("product_id")
+  price         Int
+  originalPrice Int      @map("original_price")
+  discountRate  Int      @map("discount_rate")
+  checkedAt     DateTime @default(now()) @map("checked_at")
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, checkedAt])
+  @@map("product_price_histories")
+}
+
+model UserFavoriteProduct {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("user_favorite_products")
+}
+
+model AlertRule {
+  id              String            @id @default(cuid())
+  userId          String            @map("user_id")
+  keyword         String?
+  productId       String?           @map("product_id")
+  categoryId      String?           @map("category_id")
+  minDiscountRate Int?              @map("min_discount_rate")
+  maxPrice        Int?              @map("max_price")
+  isActive        Boolean           @default(true) @map("is_active")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  notificationLogs NotificationLog[]
+
+  @@index([userId, isActive])
+  @@index([keyword])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("alert_rules")
+}
+
+model NotificationLog {
+  id          String              @id @default(cuid())
+  userId      String              @map("user_id")
+  alertRuleId String?             @map("alert_rule_id")
+  productId   String              @map("product_id")
+  channel     NotificationChannel @default(EMAIL)
+  status      NotificationStatus  @default(PENDING)
+  subject     String
+  sentAt      DateTime?           @map("sent_at")
+  errorMessage String?            @map("error_message")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alertRule   AlertRule?          @relation(fields: [alertRuleId], references: [id], onDelete: SetNull)
+  product     Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([productId])
+  @@map("notification_logs")
+}
+
+model AdminProductNote {
+  id          String   @id @default(cuid())
+  productId   String   @map("product_id")
+  adminUserId String   @map("admin_user_id")
+  note        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  adminUser   User     @relation("AdminProductNotes", fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([adminUserId])
+  @@map("admin_product_notes")
+}
+
+model ClickLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  productId  String   @map("product_id")
+  sourcePage String?  @map("source_page")
+  clickedUrl String   @map("clicked_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
+  @@index([userId])
+  @@map("click_logs")
+}

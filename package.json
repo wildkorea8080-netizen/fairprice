@@ -1,0 +1,52 @@
+{
+  "name": "fairprice",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/build.mjs",
+    "start": "next start",
+    "lint": "eslint",
+    "check:env": "node scripts/check-production-env.mjs",
+    "email:check": "node scripts/check-email-config.mjs",
+    "email:test": "node scripts/send-test-email.mjs",
+    "readiness:check": "node scripts/check-readiness.mjs",
+    "secrets:generate": "node scripts/generate-production-secrets.mjs",
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
+    "cron:pipeline": "node scripts/run-cron-pipeline.mjs --batchSize=5 --clickKeywordLimit=10 --sendDryRun=false",
+    "cron:alerts": "node scripts/run-cron-pipeline.mjs --steps=alerts,send --sendDryRun=true",
+    "cron:collect": "node scripts/run-cron-pipeline.mjs --steps=collect --batchSize=5",
+    "cron:discover": "node scripts/run-cron-pipeline.mjs --steps=discover,click-keywords --clickKeywordLimit=10",
+    "cron:clicks": "node scripts/run-cron-pipeline.mjs --steps=click-keywords --clickKeywordLimit=10",
+    "db:backup": "node scripts/backup-postgres.mjs",
+    "db:restore": "node scripts/restore-postgres.mjs",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:check": "node scripts/check-db.mjs",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "next": "16.2.9",
+    "pg": "^8.22.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "prisma": "^7.8.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

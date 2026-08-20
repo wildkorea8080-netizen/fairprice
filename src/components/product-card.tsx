@@ -23,7 +23,7 @@ export function ProductCard({ product }: ProductCardProps) {
   });
 
   return (
-    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className="group overflow-hidden border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl">
       <div
         className={`relative flex aspect-[4/3] items-center justify-center overflow-hidden ${product.imageTone}`}
       >
@@ -31,19 +31,19 @@ export function ProductCard({ product }: ProductCardProps) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             alt={`${product.title} 상품 이미지`}
-            className="h-full w-full object-contain p-4"
+            className="h-full w-full object-contain p-5 transition duration-500 group-hover:scale-105"
             loading="lazy"
             src={imageUrl}
           />
         ) : null}
         <Link
-          className="absolute left-3 top-3 rounded-md bg-white/90 px-3 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-white"
+          className="absolute left-3 top-3 bg-white/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-white"
           href={`/categories/${product.category.slug}`}
         >
           {product.category.name}
         </Link>
         {dealInsight ? (
-          <span className="absolute bottom-3 left-3 rounded-md bg-slate-950/90 px-3 py-2 text-xs font-bold text-white shadow-sm">
+          <span className="absolute bottom-3 left-3 bg-slate-950/90 px-3 py-2 text-xs font-bold text-white shadow-sm">
             {dealInsight.badge} · {dealInsight.dealScore}점
           </span>
         ) : null}
@@ -53,8 +53,8 @@ export function ProductCard({ product }: ProductCardProps) {
           <h3 className="line-clamp-2 min-h-12 text-base font-bold leading-6 text-slate-950">
             {product.title}
           </h3>
-          <span className="shrink-0 rounded-md bg-rose-50 px-2 py-1 text-sm font-bold text-rose-700">
-            {product.discountRate}%
+          <span className="shrink-0 bg-rose-600 px-2 py-1 text-sm font-black text-white">
+            ↓{product.discountRate}%
           </span>
         </div>
 
@@ -89,13 +89,13 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="grid gap-2">
           <div className="grid grid-cols-2 gap-2">
             <Link
-              className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="border border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
               href={`/products/${product.slug}`}
             >
               상세 보기
             </Link>
             <a
-              className="rounded-md bg-emerald-600 px-3 py-2 text-center text-sm font-semibold text-white transition hover:bg-emerald-700"
+              className="bg-emerald-600 px-3 py-2 text-center text-sm font-semibold text-white transition hover:bg-emerald-700"
               href={getProductOutboundPath(product.slug, "product-card")}
               rel="sponsored noopener noreferrer"
               target="_blank"
@@ -111,7 +111,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <input name="slug" type="hidden" value={product.slug} />
             <input name="next" type="hidden" value={`/products/${product.slug}`} />
             <button
-              className="w-full rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              className="w-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
               type="submit"
             >
               관심 등록

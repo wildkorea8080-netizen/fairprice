@@ -3,20 +3,19 @@ import { logout } from "@/app/(auth)/actions";
 import { getSession } from "@/lib/auth";
 
 const navItems = [
-  { label: "특가", href: "/deals" },
+  { label: "실시간 특가", href: "/deals" },
   { label: "카테고리", href: "/categories" },
-  { label: "알림 설정", href: "/alerts" },
-  { label: "관리자", href: "/admin" },
+  { label: "가격 알림", href: "/alerts" },
 ];
 
 export async function SiteHeader() {
   const user = await getSession();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3" aria-label="Fairprice home">
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white">
+          <span className="flex h-10 w-10 items-center justify-center bg-emerald-600 text-sm font-black text-white">
             FP
           </span>
           <span>
@@ -34,7 +33,7 @@ export async function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+              className="border-b-2 border-transparent px-4 py-6 text-sm font-bold text-slate-600 transition hover:border-emerald-600 hover:text-slate-950"
             >
               {item.label}
             </Link>
@@ -42,8 +41,8 @@ export async function SiteHeader() {
         </nav>
 
         {user ? (
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="hidden text-right lg:block">
               <p className="text-sm font-bold text-slate-800">{user.name}</p>
               <p className="text-xs text-slate-500">{user.role === "admin" ? "관리자" : "회원"}</p>
             </div>
@@ -55,9 +54,12 @@ export async function SiteHeader() {
                 로그아웃
               </button>
             </form>
+            <Link className="hidden text-sm font-bold text-slate-600 hover:text-emerald-700 sm:block" href="/admin">
+              관리자
+            </Link>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             <Link
               href="/login"
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
@@ -72,6 +74,37 @@ export async function SiteHeader() {
             </Link>
           </div>
         )}
+        <details className="relative ml-2 md:hidden">
+          <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center border border-slate-300 text-xl font-bold text-slate-700">
+            ≡
+          </summary>
+          <nav className="absolute right-0 top-12 grid w-48 border border-slate-200 bg-white p-2 shadow-xl" aria-label="Mobile navigation">
+            {navItems.map((item) => (
+              <Link className="px-3 py-3 text-sm font-bold text-slate-700 hover:bg-emerald-50" href={item.href} key={item.href}>
+                {item.label}
+              </Link>
+            ))}
+            <Link className="px-3 py-3 text-sm font-bold text-slate-700 hover:bg-emerald-50" href="/admin">
+              관리자
+            </Link>
+            {user ? (
+              <form action={logout}>
+                <button className="w-full px-3 py-3 text-left text-sm font-bold text-slate-700 hover:bg-emerald-50" type="submit">
+                  로그아웃
+                </button>
+              </form>
+            ) : (
+              <>
+                <Link className="px-3 py-3 text-sm font-bold text-slate-700 hover:bg-emerald-50" href="/login">
+                  로그인
+                </Link>
+                <Link className="bg-slate-950 px-3 py-3 text-sm font-bold text-white hover:bg-emerald-600" href="/signup">
+                  회원가입
+                </Link>
+              </>
+            )}
+          </nav>
+        </details>
       </div>
     </header>
   );

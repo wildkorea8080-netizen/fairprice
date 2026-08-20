@@ -22,6 +22,37 @@ type ClickAnalyticsOverview = NonNullable<
   Awaited<ReturnType<typeof getClickAnalyticsOverview>>
 >;
 
+type ClickTopProduct = {
+  clicks: number;
+  product: {
+    category: { name: string };
+    currentPrice: number;
+    discountRate: number;
+    slug: string;
+    title: string;
+  } | null;
+  productId: string;
+};
+
+type LatestClick = {
+  createdAt: Date;
+  id: string;
+  product: {
+    category: { name: string };
+    currentPrice: number;
+    discountRate: number;
+    slug: string;
+    title: string;
+  };
+  sourcePage: string | null;
+  user: { email: string } | null;
+};
+
+type SourceCount = {
+  count: number;
+  source: string;
+};
+
 const PERIOD_FILTERS = [
   { label: "24시간", value: "1" },
   { label: "7일", value: "7" },
@@ -400,7 +431,7 @@ export default async function AdminClicksPage({
         </div>
         <div className="divide-y divide-slate-200">
           {overview.topProducts.length > 0 ? (
-            overview.topProducts.map(({ clicks, product, productId }) => (
+            overview.topProducts.map(({ clicks, product, productId }: ClickTopProduct) => (
               <div
                 className="grid gap-3 px-6 py-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center"
                 key={productId}
@@ -446,7 +477,7 @@ export default async function AdminClicksPage({
           </div>
           <div className="divide-y divide-slate-200">
             {overview.latestClicks.length > 0 ? (
-              overview.latestClicks.map((click) => (
+              overview.latestClicks.map((click: LatestClick) => (
                 <div className="px-6 py-4" key={click.id}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <Link
@@ -483,7 +514,7 @@ export default async function AdminClicksPage({
           <h2 className="text-xl font-bold">유입 위치</h2>
           <div className="mt-4 grid gap-3">
             {overview.sourceCounts.length > 0 ? (
-              overview.sourceCounts.map((source) => (
+              overview.sourceCounts.map((source: SourceCount) => (
                 <div
                   className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm"
                   key={source.source}

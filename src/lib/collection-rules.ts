@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { PrismaClient } from "@prisma/client";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
 export type CollectionRule = {
@@ -8,6 +9,11 @@ export type CollectionRule = {
   limit: number;
   minDiscountRate: number;
 };
+
+type TransactionClient = Omit<
+  PrismaClient,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
 
 const COLLECTION_RULES_COOKIE = "fairprice_collection_rules";
 const MAX_COUPANG_COLLECTION_LIMIT = 10;
@@ -27,7 +33,7 @@ function getDefaultRules(): CollectionRule[] {
     }));
 }
 
-function decodeRules(value: string) {
+function decodeRules(value: string): CollectionRule[] {
   try {
     const parsed = JSON.parse(
       Buffer.from(value, "base64url").toString("utf8"),
@@ -58,22 +64,20 @@ function decodeRules(value: string) {
   }
 }
 
-export async function getCollectionRules() {
+export async function getCollectionRules(): Promise<CollectionRule[]> {
   if (isDatabaseConfigured()) {
     const databaseRules = await prisma.collectionRule.findMany({
       orderBy: { createdAt: "asc" },
     });
 
     if (databaseRules.length > 0) {
-      return databaseRules.map(
-        ({ id, isActive, keyword, limit, minDiscountRate }) => ({
-          id,
-          isActive,
-          keyword,
-          limit,
-          minDiscountRate,
-        }),
-      );
+      return databaseRules.map((rule: CollectionRule) => ({
+        id: rule.id,
+        isActive: rule.isActive,
+        keyword: rule.keyword,
+        limit: rule.limit,
+        minDiscountRate: rule.minDiscountRate,
+      }));
     }
   }
 
@@ -85,7 +89,7 @@ export async function getCollectionRules() {
 
 export async function setCollectionRules(rules: CollectionRule[]) {
   if (isDatabaseConfigured()) {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       const keywords = rules.map((rule) => rule.keyword);
 
       await tx.collectionRule.deleteMany({

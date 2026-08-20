@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { CollectionJobStatus, Prisma } from "@prisma/client";
+import type { CollectionJobStatus, Prisma, PrismaClient } from "@prisma/client";
 import { collectCoupangKeyword } from "@/lib/coupang/tracker";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
@@ -9,6 +9,30 @@ export type CollectionJobProcessResult = {
   processed: number;
   succeeded: number;
 };
+
+export type CollectionJobOverview = {
+  completed: number;
+  failed: number;
+  latest: Array<{
+    attempts: number;
+    errorMessage: string | null;
+    finishedAt: Date | null;
+    id: string;
+    keyword: string;
+    limit: number;
+    priority: number;
+    runAfter: Date;
+    startedAt: Date | null;
+    status: CollectionJobStatus;
+  }>;
+  pending: number;
+  running: number;
+};
+
+type TransactionClient = Omit<
+  PrismaClient,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
 
 function nextRunDate(hours = 1) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -55,7 +79,7 @@ export async function enqueueCollectionJobs({
   return rules.length;
 }
 
-export async function getCollectionJobOverview() {
+export async function getCollectionJobOverview(): Promise<CollectionJobOverview | null> {
   if (!isDatabaseConfigured()) {
     return null;
   }
@@ -167,7 +191,7 @@ export async function processPendingCollectionJobs({
         job.collectionRuleId,
       );
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: TransactionClient) => {
         await tx.collectionJob.update({
           data: {
             finishedAt: new Date(),

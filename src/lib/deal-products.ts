@@ -149,14 +149,14 @@ function buildReasons({
 function buildDealInsight({
   currentPrice,
   history,
-  originalPrice,
 }: {
   currentPrice: number;
   history: PricePoint[];
-  originalPrice: number;
 }): DealInsight {
-  const prices = [originalPrice, currentPrice, ...history.map(({ price }) => price)]
-    .filter((price) => price > 0);
+  const prices = (history.length > 0
+    ? history.map(({ price }) => price)
+    : [currentPrice]
+  ).filter((price) => price > 0);
   const observedHighPrice = Math.max(...prices);
   const lowestObservedPrice = Math.min(...prices);
   const averageObservedPrice = Math.round(
@@ -177,7 +177,7 @@ function buildDealInsight({
     ? calculateRate(previousPrice, currentPrice)
     : 0;
   const isLowestObserved = currentPrice <= lowestObservedPrice;
-  const observedSamples = history.length + 1;
+  const observedSamples = prices.length;
   const confidence = getConfidence(observedSamples);
   const dealScore = Math.min(
     Math.round(
@@ -226,7 +226,6 @@ function sampleDealInsight(product: Product): DealInsight {
   return buildDealInsight({
     currentPrice: product.price,
     history: [],
-    originalPrice: product.originalPrice,
   });
 }
 
@@ -291,7 +290,6 @@ function mapDatabaseProduct(product: Awaited<ReturnType<typeof getDatabaseProduc
   const dealInsight = buildDealInsight({
     currentPrice: product.currentPrice,
     history: priceHistory,
-    originalPrice: product.originalPrice,
   });
 
   return {
@@ -310,7 +308,7 @@ function mapDatabaseProduct(product: Awaited<ReturnType<typeof getDatabaseProduc
     imageTone: getImageTone(product.slug),
     imageUrl: product.imageUrl,
     lastCheckedAt: product.lastCheckedAt,
-    originalPrice: dealInsight.observedHighPrice,
+    originalPrice: Math.max(product.originalPrice, dealInsight.observedHighPrice),
     partnerUrl: product.partnerUrl,
     price: product.currentPrice,
     priceHistory,
@@ -409,7 +407,7 @@ export async function getDealProductBySlug(
         },
         priceHistories: {
           orderBy: { checkedAt: "desc" },
-          take: 30,
+          take: 400,
         },
       },
       where: { slug },

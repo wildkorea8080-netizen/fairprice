@@ -133,18 +133,14 @@ async function persistProduct(
         originalPrice: referencePrice,
         partnerUrl: product.partnerUrl,
         title: product.title,
-        ...(priceChanged
-          ? {
-              priceHistories: {
-                create: {
-                  checkedAt,
-                  discountRate,
-                  originalPrice: referencePrice,
-                  price: product.price,
-                },
-              },
-            }
-          : {}),
+        priceHistories: {
+          create: {
+            checkedAt,
+            discountRate,
+            originalPrice: referencePrice,
+            price: product.price,
+          },
+        },
       },
       where: { id: existing.id },
     });

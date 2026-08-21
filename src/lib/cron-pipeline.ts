@@ -43,6 +43,16 @@ const DEFAULT_STEPS: CronPipelineStep[] = [
 ];
 const STALE_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 
+export class CronPipelineAlreadyRunningError extends Error {
+  runId: string;
+
+  constructor(runId: string) {
+    super(`Cron pipeline ${runId} is already running.`);
+    this.name = "CronPipelineAlreadyRunningError";
+    this.runId = runId;
+  }
+}
+
 function elapsedSince(startedAt: number) {
   return Date.now() - startedAt;
 }
@@ -123,6 +133,19 @@ export async function runCronPipeline(options: CronPipelineOptions = {}) {
   }
 
   await markStaleCronRuns();
+
+  const activeRun = await prisma.cronRun.findFirst({
+    orderBy: { startedAt: "desc" },
+    select: { id: true },
+    where: {
+      finishedAt: null,
+      status: "RUNNING",
+    },
+  });
+
+  if (activeRun) {
+    throw new CronPipelineAlreadyRunningError(activeRun.id);
+  }
 
   const steps = normalizeSteps(options.steps);
   const startedAt = Date.now();

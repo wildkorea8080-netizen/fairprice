@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import {
+  CronPipelineAlreadyRunningError,
   runCronPipeline,
   type CronPipelineStep,
 } from "@/lib/cron-pipeline";
@@ -56,6 +57,21 @@ function parseSteps(value: string | null) {
     );
 }
 
+function parseBoundedInteger(
+  value: string | null,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(parsed, min), max);
+}
+
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,9 +85,24 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const batchSize = Number(url.searchParams.get("batchSize")) || 5;
-  const categoryId = Number(url.searchParams.get("categoryId")) || 1014;
-  const clickKeywordLimit = Number(url.searchParams.get("clickKeywordLimit")) || 10;
+  const batchSize = parseBoundedInteger(
+    url.searchParams.get("batchSize"),
+    5,
+    1,
+    50,
+  );
+  const categoryId = parseBoundedInteger(
+    url.searchParams.get("categoryId"),
+    1014,
+    1,
+    9999,
+  );
+  const clickKeywordLimit = parseBoundedInteger(
+    url.searchParams.get("clickKeywordLimit"),
+    10,
+    1,
+    100,
+  );
   const sendDryRun = parseBoolean(url.searchParams.get("sendDryRun"));
   const steps = parseSteps(url.searchParams.get("steps"));
 
@@ -86,6 +117,17 @@ export async function GET(request: Request) {
 
     return Response.json(summary);
   } catch (error) {
+    if (error instanceof CronPipelineAlreadyRunningError) {
+      return Response.json(
+        {
+          error: error.message,
+          runId: error.runId,
+          status: "already-running",
+        },
+        { status: 409 },
+      );
+    }
+
     return Response.json(
       {
         error:

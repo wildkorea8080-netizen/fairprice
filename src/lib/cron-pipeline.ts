@@ -8,6 +8,7 @@ import {
   processPendingCollectionJobs,
 } from "@/lib/collection-jobs";
 import { discoverKeywordCandidatesFromCoupang } from "@/lib/coupang/keyword-discovery";
+import { promoteTopKeywordCandidates } from "@/lib/keyword-candidates";
 import { sendPendingNotifications } from "@/lib/notification-sender";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
@@ -42,6 +43,7 @@ const DEFAULT_STEPS: CronPipelineStep[] = [
   "send",
 ];
 const STALE_RUN_TIMEOUT_MS = 15 * 60 * 1000;
+const DISCOVERY_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 export class CronPipelineAlreadyRunningError extends Error {
   runId: string;
@@ -77,6 +79,20 @@ function buildRunOptions(options: CronPipelineOptions) {
 
 function toInputJson(value: unknown) {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+async function shouldRefreshCoupangDiscovery() {
+  const latestCandidate = await prisma.keywordCandidate.findFirst({
+    orderBy: { updatedAt: "desc" },
+    select: { updatedAt: true },
+    where: { sourceType: "COUPANG_DISCOVERY" },
+  });
+
+  return (
+    !latestCandidate ||
+    Date.now() - latestCandidate.updatedAt.getTime() >=
+      DISCOVERY_REFRESH_INTERVAL_MS
+  );
 }
 
 export async function markStaleCronRuns() {
@@ -161,12 +177,27 @@ export async function runCronPipeline(options: CronPipelineOptions = {}) {
   try {
     if (steps.includes("discover")) {
       results.push(
-        await runStep("discover", () =>
-          discoverKeywordCandidatesFromCoupang({
-            categoryId: options.categoryId ?? 1014,
-            mode: "all",
-          }),
-        ),
+        await runStep("discover", async () => {
+          const refreshDiscovery = await shouldRefreshCoupangDiscovery();
+          const discovery = refreshDiscovery
+            ? await discoverKeywordCandidatesFromCoupang({
+                categoryId: options.categoryId ?? 1014,
+                mode: "all",
+              })
+            : { candidates: 0, products: 0 };
+          const promoted = await promoteTopKeywordCandidates({
+            limit: 3,
+            maxActiveRules: 100,
+            minScore: 160,
+            sourceType: "COUPANG_DISCOVERY",
+          });
+
+          return {
+            ...discovery,
+            promoted,
+            refreshed: refreshDiscovery,
+          };
+        }),
       );
     }
 

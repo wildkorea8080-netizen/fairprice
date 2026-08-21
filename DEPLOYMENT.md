@@ -116,7 +116,8 @@ Authorization: Bearer <CRON_SECRET>
 
 The pipeline runs these steps in order:
 
-1. `discover`: update keyword candidates from Coupang discovery sources.
+1. `discover`: refresh Coupang candidates at most every six hours and automatically
+   promote up to three trusted candidates per run, capped at 100 active rules.
 2. `click-keywords`: create keyword candidates from affiliate click signals.
 3. `collect`: enqueue active collection rules and process pending collection jobs.
 4. `alerts`: evaluate user alert rules against tracked products.

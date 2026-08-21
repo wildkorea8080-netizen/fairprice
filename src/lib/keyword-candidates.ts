@@ -191,10 +191,12 @@ export async function seedDefaultKeywordCandidates() {
 
 export async function promoteTopKeywordCandidates({
   limit = 20,
+  maxActiveRules,
   minScore = 70,
   sourceType,
 }: {
   limit?: number;
+  maxActiveRules?: number;
   minScore?: number;
   sourceType?: KeywordSourceType;
 }) {
@@ -202,9 +204,21 @@ export async function promoteTopKeywordCandidates({
     throw new Error("DATABASE_URL is required for keyword promotion.");
   }
 
+  const activeRuleCount = maxActiveRules
+    ? await prisma.collectionRule.count({ where: { isActive: true } })
+    : 0;
+  const availableSlots = maxActiveRules
+    ? Math.max(maxActiveRules - activeRuleCount, 0)
+    : limit;
+  const promotionLimit = Math.min(limit, availableSlots);
+
+  if (promotionLimit === 0) {
+    return 0;
+  }
+
   const candidates = await prisma.keywordCandidate.findMany({
     orderBy: [{ score: "desc" }, { createdAt: "asc" }],
-    take: Math.min(Math.max(limit, 1), 100),
+    take: Math.min(Math.max(promotionLimit, 1), 100),
     where: {
       score: { gte: Math.min(Math.max(minScore, 0), 1000) },
       ...(sourceType ? { sourceType } : {}),

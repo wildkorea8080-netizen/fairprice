@@ -53,15 +53,25 @@ export function ProductCard({ product }: ProductCardProps) {
           <h3 className="line-clamp-2 min-h-12 text-base font-bold leading-6 text-slate-950">
             {product.title}
           </h3>
-          <span className="shrink-0 bg-rose-600 px-2 py-1 text-sm font-black text-white">
-            ↓{product.discountRate}%
-          </span>
+          {product.discountRate > 0 ? (
+            <span className="shrink-0 bg-rose-600 px-2 py-1 text-sm font-black text-white">
+              ↓{product.discountRate}%
+            </span>
+          ) : dealInsight ? (
+            <span className="shrink-0 bg-slate-100 px-2 py-1 text-xs font-black text-slate-600">
+              추적중
+            </span>
+          ) : null}
         </div>
 
         <div>
-          <p className="text-sm text-slate-400 line-through">
-            {formatKoreanPrice(product.originalPrice)}
-          </p>
+          {product.originalPrice > product.price ? (
+            <p className="text-sm text-slate-400 line-through">
+              {formatKoreanPrice(product.originalPrice)}
+            </p>
+          ) : (
+            <p className="text-xs font-semibold text-slate-400">현재 확인 가격</p>
+          )}
           <p className="text-xl font-bold text-slate-950">
             {formatKoreanPrice(product.price)}
           </p>

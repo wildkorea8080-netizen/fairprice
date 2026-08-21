@@ -9,6 +9,7 @@ type PricePoint = {
 };
 
 export type DealInsight = {
+  averageObservedPrice: number;
   badge: string;
   confidence: "low" | "medium" | "high";
   dealScore: number;
@@ -17,9 +18,12 @@ export type DealInsight = {
   lowestObservedPrice: number;
   observedHighPrice: number;
   observedSamples: number;
+  pricePercentile: number;
   previousPrice?: number;
   previousPriceDropRate: number;
   reasons: string[];
+  trackingDays: number;
+  verdict: "collecting" | "lowest" | "good" | "average" | "wait";
 };
 
 export type DealProduct = Product & {
@@ -90,6 +94,26 @@ function getDealBadge(
   return "가격 추적중";
 }
 
+function getVerdict({
+  averageObservedPrice,
+  currentPrice,
+  dropFromHighRate,
+  isLowestObserved,
+  observedSamples,
+}: {
+  averageObservedPrice: number;
+  currentPrice: number;
+  dropFromHighRate: number;
+  isLowestObserved: boolean;
+  observedSamples: number;
+}): DealInsight["verdict"] {
+  if (observedSamples < 3) return "collecting";
+  if (isLowestObserved) return "lowest";
+  if (dropFromHighRate >= 10 || currentPrice <= averageObservedPrice * 0.95) return "good";
+  if (currentPrice >= averageObservedPrice * 1.08) return "wait";
+  return "average";
+}
+
 function buildReasons({
   dropFromHighRate,
   isLowestObserved,
@@ -135,6 +159,18 @@ function buildDealInsight({
     .filter((price) => price > 0);
   const observedHighPrice = Math.max(...prices);
   const lowestObservedPrice = Math.min(...prices);
+  const averageObservedPrice = Math.round(
+    prices.reduce((sum, price) => sum + price, 0) / prices.length,
+  );
+  const pricePercentile = Math.round(
+    ((currentPrice - lowestObservedPrice) /
+      Math.max(observedHighPrice - lowestObservedPrice, 1)) *
+      100,
+  );
+  const timestamps = history.map(({ checkedAt }) => checkedAt.getTime());
+  const trackingDays = timestamps.length
+    ? Math.max(1, Math.ceil((Date.now() - Math.min(...timestamps)) / 86_400_000))
+    : 1;
   const previousPrice = history.find(({ price }) => price !== currentPrice)?.price;
   const dropFromHighRate = calculateRate(observedHighPrice, currentPrice);
   const previousPriceDropRate = previousPrice
@@ -153,12 +189,14 @@ function buildDealInsight({
     100,
   );
   const insightWithoutBadge = {
+    averageObservedPrice,
     dealScore,
     dropFromHighRate,
     isLowestObserved,
     lowestObservedPrice,
     observedHighPrice,
     observedSamples,
+    pricePercentile,
     previousPrice,
     previousPriceDropRate,
     reasons: buildReasons({
@@ -166,6 +204,14 @@ function buildDealInsight({
       isLowestObserved,
       observedSamples,
       previousPriceDropRate,
+    }),
+    trackingDays,
+    verdict: getVerdict({
+      averageObservedPrice,
+      currentPrice,
+      dropFromHighRate,
+      isLowestObserved,
+      observedSamples,
     }),
   };
 
@@ -376,5 +422,34 @@ export async function getDealProductBySlug(
     return mapDatabaseProduct(product);
   } catch {
     return null;
+  }
+}
+
+export async function getRelatedDealProducts(
+  product: DealProduct,
+  limit = 8,
+): Promise<DealProduct[]> {
+  if (!isDatabaseConfigured() || product.source !== "database") return [];
+
+  try {
+    const candidates = (await getDatabaseProducts(120))
+      .map(mapDatabaseProduct)
+      .filter((candidate) => candidate.slug !== product.slug)
+      .map((candidate) => {
+        const priceGap = Math.abs(candidate.price - product.price) / Math.max(product.price, 1);
+        const score =
+          (candidate.category.slug === product.category.slug ? 40 : 0) +
+          (candidate.brand === product.brand ? 20 : 0) +
+          Math.max(0, Math.round(20 - priceGap * 40)) +
+          Math.round(candidate.dealInsight.dealScore * 0.2);
+
+        return { candidate, score };
+      })
+      .sort((a, b) => b.score - a.score || b.candidate.dealInsight.dealScore - a.candidate.dealInsight.dealScore)
+      .slice(0, Math.min(Math.max(limit, 1), 12));
+
+    return candidates.map(({ candidate }) => candidate);
+  } catch {
+    return [];
   }
 }

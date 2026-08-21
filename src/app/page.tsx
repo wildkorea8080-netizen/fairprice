@@ -106,7 +106,9 @@ export default async function Home() {
                   </span>
                   <span className="text-right">
                     <span className="block text-sm font-black text-emerald-300">{formatKoreanPrice(product.price)}</span>
-                    <span className="text-xs font-bold text-rose-300">↓ {product.discountRate}%</span>
+                    <span className={`text-xs font-bold ${product.discountRate > 0 ? "text-rose-300" : "text-slate-400"}`}>
+                      {product.discountRate > 0 ? `↓ ${product.discountRate}%` : "가격 추적중"}
+                    </span>
                   </span>
                 </Link>
               ))}
@@ -122,7 +124,7 @@ export default async function Home() {
         <div className="ticker-track">
           {tickerProducts.map((product, index) => (
             <Link className="flex shrink-0 items-center gap-3 px-6 text-sm" href={`/products/${product.slug}`} key={`${product.slug}-${index}`}>
-              <span className="font-black">↓{product.discountRate}%</span>
+              <span className="font-black">{product.discountRate > 0 ? `↓${product.discountRate}%` : product.dealInsight.badge}</span>
               <span className="max-w-56 truncate font-semibold">{product.title}</span>
               <span className="text-emerald-100">{formatKoreanPrice(product.price)}</span>
             </Link>
@@ -155,8 +157,8 @@ export default async function Home() {
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-bold text-emerald-700">PRICE DROP NOW</p>
-            <h2 className="mt-2 text-2xl font-black sm:text-3xl">지금 확인된 특가</h2>
-            <p className="mt-2 text-sm text-slate-500">가격 이력, 하락폭, 데이터 신뢰도를 함께 계산한 순위입니다.</p>
+            <h2 className="mt-2 text-2xl font-black sm:text-3xl">구매 타이밍을 확인하세요</h2>
+            <p className="mt-2 text-sm text-slate-500">신규 상품은 가격을 수집하고, 이력이 쌓인 상품은 하락폭과 평균가를 함께 판단합니다.</p>
           </div>
           <Link className="text-sm font-bold text-emerald-700 hover:text-emerald-900" href="/deals">전체 보기 →</Link>
         </div>

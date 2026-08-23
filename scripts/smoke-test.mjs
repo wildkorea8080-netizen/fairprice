@@ -18,8 +18,14 @@ const checks = [
       ["permissions-policy", "camera=(), microphone=(), geolocation=()"],
     ],
     name: "home",
+    bodyIncludes: ["지금 이 가격", "구매 타이밍을 확인하세요"],
   },
-  { path: "/deals", expect: [200], name: "deals" },
+  {
+    path: "/deals",
+    expect: [200],
+    bodyIncludes: ["가격 이력 기반 특가", "관측 최고가 대비 하락률"],
+    name: "deals",
+  },
   { path: "/categories", expect: [200], name: "categories" },
   {
     path: "/products/wireless-noise-cancelling-earbuds",

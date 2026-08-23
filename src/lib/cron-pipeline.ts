@@ -11,6 +11,7 @@ import { discoverKeywordCandidatesFromCoupang } from "@/lib/coupang/keyword-disc
 import { promoteTopKeywordCandidates } from "@/lib/keyword-candidates";
 import { sendPendingNotifications } from "@/lib/notification-sender";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
+import { refreshTrackingPolicies } from "@/lib/tracking-policies";
 
 export type CronPipelineStep =
   | "discover"
@@ -215,12 +216,14 @@ export async function runCronPipeline(options: CronPipelineOptions = {}) {
     if (steps.includes("collect")) {
       results.push(
         await runStep("collect", async () => {
+          const policiesBeforeCollection = await refreshTrackingPolicies();
           const enqueued = await enqueueCollectionJobs();
           const processed = await processPendingCollectionJobs({
             batchSize: options.batchSize ?? 5,
           });
+          const policies = await refreshTrackingPolicies();
 
-          return { enqueued, processed };
+          return { enqueued, policies, policiesBeforeCollection, processed };
         }),
       );
     }
@@ -289,7 +292,15 @@ export async function getCronScheduleOverview() {
   }
 
   const staleCronRuns = await markStaleCronRuns();
-  const [products, priceHistories, jobs, notifications, keywords, cronRuns] =
+  const [
+    products,
+    priceHistories,
+    jobs,
+    notifications,
+    keywords,
+    cronRuns,
+    trackingPolicies,
+  ] =
     await Promise.all([
       prisma.product.count(),
       prisma.productPriceHistory.count(),
@@ -309,6 +320,10 @@ export async function getCronScheduleOverview() {
         orderBy: { startedAt: "desc" },
         take: 10,
       }),
+      prisma.productTrackingPolicy.groupBy({
+        by: ["tier"],
+        _count: { _all: true },
+      }),
     ]);
 
   return {
@@ -319,5 +334,6 @@ export async function getCronScheduleOverview() {
     priceHistories,
     products,
     staleCronRuns,
+    trackingPolicies,
   };
 }

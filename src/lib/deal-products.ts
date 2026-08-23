@@ -16,13 +16,19 @@ export type DealInsight = {
   dropFromHighRate: number;
   isLowestObserved: boolean;
   lowestObservedPrice: number;
+  medianObservedPrice: number;
   observedHighPrice: number;
   observedSamples: number;
+  p25ObservedPrice: number;
+  p75ObservedPrice: number;
   pricePercentile: number;
   previousPrice?: number;
   previousPriceDropRate: number;
   reasons: string[];
+  scoreComponents: Record<string, number>;
+  scoreVersion: string;
   trackingDays: number;
+  volatility: number;
   verdict: "collecting" | "lowest" | "good" | "average" | "wait";
 };
 
@@ -59,22 +65,36 @@ function calculateRate(referencePrice: number, currentPrice: number) {
   return Math.round(((referencePrice - currentPrice) / referencePrice) * 100);
 }
 
-function getConfidence(sampleCount: number): DealInsight["confidence"] {
-  if (sampleCount >= 8) {
+function getConfidence(
+  sampleCount: number,
+  dataConfidence?: "COLLECTING" | "PRELIMINARY" | "RELIABLE",
+): DealInsight["confidence"] {
+  if (dataConfidence === "RELIABLE") {
     return "high";
   }
 
-  if (sampleCount >= 3) {
+  if (dataConfidence === "PRELIMINARY") {
     return "medium";
   }
+
+  if (dataConfidence === "COLLECTING") {
+    return "low";
+  }
+
+  if (sampleCount >= 8) return "high";
+  if (sampleCount >= 3) return "medium";
 
   return "low";
 }
 
 function getDealBadge(
   score: number,
-  insight: Omit<DealInsight, "badge" | "confidence">,
+  insight: Omit<DealInsight, "badge">,
 ) {
+  if (insight.confidence === "low") {
+    return "가격 추적중";
+  }
+
   if (score >= 80) {
     return "강력 특가";
   }
@@ -100,14 +120,16 @@ function getVerdict({
   dropFromHighRate,
   isLowestObserved,
   observedSamples,
+  confidence,
 }: {
   averageObservedPrice: number;
   currentPrice: number;
   dropFromHighRate: number;
   isLowestObserved: boolean;
   observedSamples: number;
+  confidence: DealInsight["confidence"];
 }): DealInsight["verdict"] {
-  if (observedSamples < 3) return "collecting";
+  if (confidence === "low" || observedSamples < 3) return "collecting";
   if (isLowestObserved) return "lowest";
   if (dropFromHighRate >= 10 || currentPrice <= averageObservedPrice * 0.95) return "good";
   if (currentPrice >= averageObservedPrice * 1.08) return "wait";
@@ -147,12 +169,92 @@ function buildReasons({
 }
 
 function buildDealInsight({
+  analytics,
   currentPrice,
   history,
+  quality,
 }: {
+  analytics?: {
+    components: unknown;
+    confidence: "COLLECTING" | "PRELIMINARY" | "RELIABLE";
+    highestPrice: number;
+    lowestPrice: number;
+    medianPrice: number;
+    p25Price: number;
+    p75Price: number;
+    previousDropRate: number;
+    previousPrice: number | null;
+    pricePercentile: number;
+    reasons: unknown;
+    sampleCount: number;
+    score: number;
+    scoreVersion: string;
+    trackingDays: number;
+    verdict: "COLLECTING" | "STRONG_DEAL" | "DEAL" | "LOWEST" | "GOOD" | "AVERAGE" | "WAIT";
+    volatility: number;
+  } | null;
   currentPrice: number;
   history: PricePoint[];
+  quality?: {
+    confidence: "COLLECTING" | "PRELIMINARY" | "RELIABLE";
+    trackingStartedAt: Date;
+    validSamples: number;
+  } | null;
 }): DealInsight {
+  if (analytics) {
+    const confidence = getConfidence(analytics.sampleCount, analytics.confidence);
+    const verdictMap: Record<typeof analytics.verdict, DealInsight["verdict"]> = {
+      AVERAGE: "average",
+      COLLECTING: "collecting",
+      DEAL: "good",
+      GOOD: "good",
+      LOWEST: "lowest",
+      STRONG_DEAL: "lowest",
+      WAIT: "wait",
+    };
+    const reasons = Array.isArray(analytics.reasons)
+      ? analytics.reasons.filter((reason): reason is string => typeof reason === "string")
+      : [];
+    const scoreComponents =
+      analytics.components && typeof analytics.components === "object" && !Array.isArray(analytics.components)
+        ? Object.fromEntries(
+            Object.entries(analytics.components).filter(
+              (entry): entry is [string, number] => typeof entry[1] === "number",
+            ),
+          )
+        : {};
+    const dropFromHighRate = calculateRate(analytics.highestPrice, currentPrice);
+    const insightWithoutBadge = {
+      averageObservedPrice: analytics.medianPrice,
+      confidence,
+      dealScore: analytics.score,
+      dropFromHighRate,
+      isLowestObserved:
+        analytics.highestPrice > analytics.lowestPrice &&
+        currentPrice <= analytics.lowestPrice,
+      lowestObservedPrice: analytics.lowestPrice,
+      medianObservedPrice: analytics.medianPrice,
+      observedHighPrice: analytics.highestPrice,
+      observedSamples: analytics.sampleCount,
+      p25ObservedPrice: analytics.p25Price,
+      p75ObservedPrice: analytics.p75Price,
+      pricePercentile: analytics.pricePercentile,
+      previousPrice: analytics.previousPrice ?? undefined,
+      previousPriceDropRate: analytics.previousDropRate,
+      reasons: reasons.length > 0 ? reasons : ["가격 이력을 더 수집하는 중"],
+      scoreComponents,
+      scoreVersion: analytics.scoreVersion,
+      trackingDays: analytics.trackingDays,
+      verdict: verdictMap[analytics.verdict],
+      volatility: analytics.volatility,
+    };
+
+    return {
+      ...insightWithoutBadge,
+      badge: getDealBadge(analytics.score, insightWithoutBadge),
+    };
+  }
+
   const prices = (history.length > 0
     ? history.map(({ price }) => price)
     : [currentPrice]
@@ -168,18 +270,28 @@ function buildDealInsight({
       100,
   );
   const timestamps = history.map(({ checkedAt }) => checkedAt.getTime());
-  const trackingDays = timestamps.length
-    ? Math.max(1, Math.ceil((Date.now() - Math.min(...timestamps)) / 86_400_000))
-    : 1;
+  const trackingDays = quality
+    ? Math.max(
+        1,
+        Math.ceil(
+          (Date.now() - quality.trackingStartedAt.getTime()) / 86_400_000,
+        ),
+      )
+    : timestamps.length
+      ? Math.max(
+          1,
+          Math.ceil((Date.now() - Math.min(...timestamps)) / 86_400_000),
+        )
+      : 1;
   const previousPrice = history.find(({ price }) => price !== currentPrice)?.price;
   const dropFromHighRate = calculateRate(observedHighPrice, currentPrice);
   const previousPriceDropRate = previousPrice
     ? calculateRate(previousPrice, currentPrice)
     : 0;
   const isLowestObserved = currentPrice <= lowestObservedPrice;
-  const observedSamples = prices.length;
-  const confidence = getConfidence(observedSamples);
-  const dealScore = Math.min(
+  const observedSamples = quality?.validSamples ?? prices.length;
+  const confidence = getConfidence(observedSamples, quality?.confidence);
+  const rawDealScore = Math.min(
     Math.round(
       dropFromHighRate * 2.4 +
         previousPriceDropRate * 3 +
@@ -188,12 +300,20 @@ function buildDealInsight({
     ),
     100,
   );
+  const dealScore =
+    confidence === "low"
+      ? Math.min(rawDealScore, 39)
+      : confidence === "medium"
+        ? Math.min(rawDealScore, 69)
+        : rawDealScore;
   const insightWithoutBadge = {
     averageObservedPrice,
+    confidence,
     dealScore,
     dropFromHighRate,
     isLowestObserved,
     lowestObservedPrice,
+    medianObservedPrice: averageObservedPrice,
     observedHighPrice,
     observedSamples,
     pricePercentile,
@@ -205,20 +325,25 @@ function buildDealInsight({
       observedSamples,
       previousPriceDropRate,
     }),
+    p25ObservedPrice: lowestObservedPrice,
+    p75ObservedPrice: observedHighPrice,
+    scoreComponents: {},
+    scoreVersion: "legacy-request-v0",
     trackingDays,
+    volatility: 0,
     verdict: getVerdict({
       averageObservedPrice,
       currentPrice,
       dropFromHighRate,
       isLowestObserved,
       observedSamples,
+      confidence,
     }),
   };
 
   return {
     ...insightWithoutBadge,
     badge: getDealBadge(dealScore, insightWithoutBadge),
-    confidence,
   };
 }
 
@@ -248,6 +373,9 @@ async function getDatabaseProducts(limit: number) {
       priceHistories: {
         orderBy: { checkedAt: "desc" },
         take: 30,
+      },
+      variant: {
+        include: { dataQuality: true, dealAnalytics: true },
       },
     },
     orderBy: [
@@ -288,8 +416,10 @@ function mapDatabaseProduct(product: Awaited<ReturnType<typeof getDatabaseProduc
     price,
   }));
   const dealInsight = buildDealInsight({
+    analytics: product.variant?.dealAnalytics,
     currentPrice: product.currentPrice,
     history: priceHistory,
+    quality: product.variant?.dataQuality,
   });
 
   return {
@@ -408,6 +538,9 @@ export async function getDealProductBySlug(
         priceHistories: {
           orderBy: { checkedAt: "desc" },
           take: 400,
+        },
+        variant: {
+          include: { dataQuality: true, dealAnalytics: true },
         },
       },
       where: { slug },

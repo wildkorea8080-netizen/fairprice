@@ -43,6 +43,7 @@ async function main() {
   const skipTypecheck = args.skipTypecheck === "true";
   const skipLint = args.skipLint === "true";
   const skipBuild = args.skipBuild === "true";
+  const skipDealEngineTests = args.skipDealEngineTests === "true";
   const skipSmoke = args.skipSmoke === "true";
   const skipReadiness = args.skipReadiness === "true";
 
@@ -58,6 +59,10 @@ async function main() {
 
   if (!skipLint) {
     await run("node", ["node_modules/eslint/bin/eslint.js"]);
+  }
+
+  if (!skipDealEngineTests) {
+    await run("npm", ["run", "test:deal-engine"]);
   }
 
   if (!skipBuild) {

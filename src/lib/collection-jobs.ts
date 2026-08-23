@@ -34,8 +34,8 @@ type TransactionClient = Omit<
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
 >;
 
-function nextRunDate(hours = 1) {
-  return new Date(Date.now() + hours * 60 * 60 * 1000);
+function nextRunDate(minutes: number) {
+  return new Date(Date.now() + minutes * 60 * 1000);
 }
 
 export async function enqueueCollectionJobs({
@@ -50,6 +50,22 @@ export async function enqueueCollectionJobs({
   }
 
   const rules = await prisma.collectionRule.findMany({
+    include: {
+      jobs: {
+        orderBy: { createdAt: "desc" },
+        select: { finishedAt: true },
+        take: 1,
+      },
+      products: {
+        include: {
+          product: {
+            include: {
+              variant: { include: { trackingPolicy: true } },
+            },
+          },
+        },
+      },
+    },
     orderBy: [{ updatedAt: "desc" }],
     take: Math.min(Math.max(limit, 1), 200),
     where: {
@@ -66,17 +82,73 @@ export async function enqueueCollectionJobs({
     return 0;
   }
 
+  const now = new Date();
+  const fallbackIntervalMs = 6 * 60 * 60 * 1000;
+  const candidates = rules.flatMap((rule) => {
+    const policies = rule.products.flatMap(({ product }) =>
+      product.variant?.trackingPolicy ? [product.variant.trackingPolicy] : [],
+    );
+    const duePolicies = policies.filter(
+      (policy) => policy.isEnabled && policy.nextCheckAt <= runAfter,
+    );
+    const latestFinishedAt = rule.jobs[0]?.finishedAt;
+    const fallbackDue =
+      policies.length === 0 &&
+      (!latestFinishedAt ||
+        now.getTime() - latestFinishedAt.getTime() >= fallbackIntervalMs);
+
+    if (duePolicies.length === 0 && !fallbackDue) {
+      return [];
+    }
+
+    return [
+      {
+        collectionRuleId: rule.id,
+        keyword: rule.keyword,
+        limit: rule.limit,
+        priority:
+          duePolicies.length > 0
+            ? Math.max(...duePolicies.map((policy) => policy.priorityScore))
+            : Math.max(100 - rule.minDiscountRate, 1),
+        runAfter,
+        duePolicies,
+      },
+    ];
+  });
+
+  if (candidates.length === 0) {
+    return 0;
+  }
+
   await prisma.collectionJob.createMany({
-    data: rules.map((rule) => ({
-      collectionRuleId: rule.id,
-      keyword: rule.keyword,
-      limit: rule.limit,
-      priority: Math.max(100 - rule.minDiscountRate, 1),
-      runAfter,
+    data: candidates.map((candidate) => ({
+      collectionRuleId: candidate.collectionRuleId,
+      keyword: candidate.keyword,
+      limit: candidate.limit,
+      priority: candidate.priority,
+      runAfter: candidate.runAfter,
     })),
   });
 
-  return rules.length;
+  const scheduledPolicies = new Map(
+    candidates.flatMap(({ duePolicies }) =>
+      duePolicies.map((policy) => [policy.id, policy]),
+    ),
+  );
+
+  await Promise.all(
+    [...scheduledPolicies.values()].map((policy) =>
+      prisma.productTrackingPolicy.update({
+        data: {
+          lastScheduledAt: now,
+          nextCheckAt: nextRunDate(policy.intervalMinutes),
+        },
+        where: { id: policy.id },
+      }),
+    ),
+  );
+
+  return candidates.length;
 }
 
 export async function getCollectionJobOverview(): Promise<CollectionJobOverview | null> {
@@ -204,15 +276,6 @@ export async function processPendingCollectionJobs({
           data: { updatedAt: new Date() },
           where: { id: job.collectionRuleId },
         });
-        await tx.collectionJob.create({
-          data: {
-            collectionRuleId: job.collectionRuleId,
-            keyword: job.collectionRule.keyword,
-            limit: job.collectionRule.limit,
-            priority: job.priority,
-            runAfter: nextRunDate(6),
-          },
-        });
       });
 
       succeeded += 1;
@@ -220,14 +283,31 @@ export async function processPendingCollectionJobs({
       const message =
         error instanceof Error ? error.message : "Collection job failed";
 
-      await prisma.collectionJob.update({
-        data: {
-          errorMessage: message,
-          finishedAt: new Date(),
-          runAfter: nextRunDate(1),
-          status: "FAILED",
-        },
-        where: { id: job.id },
+      const attemptNumber = job.attempts + 1;
+      const retryDelayMinutes = 15 * 2 ** Math.max(attemptNumber - 1, 0);
+
+      await prisma.$transaction(async (tx: TransactionClient) => {
+        await tx.collectionJob.update({
+          data: {
+            errorMessage: message,
+            finishedAt: new Date(),
+            status: "FAILED",
+          },
+          where: { id: job.id },
+        });
+
+        if (attemptNumber < 3) {
+          await tx.collectionJob.create({
+            data: {
+              attempts: attemptNumber,
+              collectionRuleId: job.collectionRuleId,
+              keyword: job.keyword,
+              limit: job.limit,
+              priority: job.priority,
+              runAfter: nextRunDate(retryDelayMinutes),
+            },
+          });
+        }
       });
       failed += 1;
     }

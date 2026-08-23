@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DealFilters } from "@/components/deal-filters";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
+import { getActiveDealFeed } from "@/lib/deal-feed";
 import { getDealProducts } from "@/lib/deal-products";
 import { getPublicCategories } from "@/lib/public-categories";
 import {
@@ -54,13 +55,22 @@ export default async function DealsPage({ searchParams }: DealsPageProps) {
   const { discount, q } = await searchParams;
   const activeDiscount = discount ? Number(discount) : undefined;
   const activeQuery = q?.trim() || undefined;
-  const [visibleProducts, categories] = await Promise.all([
+  const [catalogProducts, categories, activeDealFeed] = await Promise.all([
     getDealProducts({
       minDiscountRate: activeDiscount,
       searchQuery: activeQuery,
     }),
     getPublicCategories(),
+    getActiveDealFeed(100),
   ]);
+  const matchingActiveDeals = activeDealFeed.filter(({ product }) =>
+    catalogProducts.some(({ slug }) => slug === product.slug),
+  );
+  const activeSlugs = new Set(matchingActiveDeals.map(({ product }) => product.slug));
+  const visibleProducts = [
+    ...matchingActiveDeals.map(({ product }) => product),
+    ...catalogProducts.filter(({ slug }) => !activeSlugs.has(slug)),
+  ];
   const databaseProductCount = visibleProducts.filter(
     (product) => product.source === "database",
   ).length;
@@ -117,7 +127,11 @@ export default async function DealsPage({ searchParams }: DealsPageProps) {
               {activeQuery ? ` · 검색어 "${activeQuery}"` : ""}
             </p>
           </div>
-          <p className="text-sm text-slate-500">특가 점수순</p>
+          <p className="text-sm text-slate-500">
+            {matchingActiveDeals.length > 0
+              ? `활성 HOT DEAL ${matchingActiveDeals.length}개 우선`
+              : "특가 점수순"}
+          </p>
         </div>
 
         {visibleProducts.length > 0 ? (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
+import { buildDealFeedSections, getActiveDealFeed } from "@/lib/deal-feed";
 import { formatKoreanPrice, getDealProducts } from "@/lib/deal-products";
 import { getPublicCategories } from "@/lib/public-categories";
 import {
@@ -12,10 +13,15 @@ import {
 const categoryMarks = ["01", "02", "03", "04", "05", "06", "07", "08"];
 
 export default async function Home() {
-  const [featuredProducts, categories] = await Promise.all([
+  const [featuredProducts, categories, activeDealFeed] = await Promise.all([
     getDealProducts({ limit: 12 }),
     getPublicCategories(),
+    getActiveDealFeed(40),
   ]);
+  const dealFeedSections = buildDealFeedSections(activeDealFeed);
+  const primaryProducts = activeDealFeed.length > 0
+    ? activeDealFeed.slice(0, 12).map(({ product }) => product)
+    : featuredProducts;
   const appUrl = getAppUrl();
   const databaseProductCount = featuredProducts.filter(
     (product) => product.source === "database",
@@ -24,7 +30,7 @@ export default async function Home() {
   const lowestPriceCount = featuredProducts.filter(
     (product) => product.dealInsight.isLowestObserved,
   ).length;
-  const tickerProducts = [...featuredProducts.slice(0, 6), ...featuredProducts.slice(0, 6)];
+  const tickerProducts = [...primaryProducts.slice(0, 6), ...primaryProducts.slice(0, 6)];
   const websiteJsonLd = createWebSiteJsonLd({
     description:
       "쿠팡 상품 가격을 추적하고 할인율, 카테고리, 관심 키워드별 특가 알림을 제공하는 페어프라이스입니다.",
@@ -97,7 +103,7 @@ export default async function Home() {
               ))}
             </div>
             <div className="mt-6 space-y-3">
-              {featuredProducts.slice(0, 3).map((product, index) => (
+              {primaryProducts.slice(0, 3).map((product, index) => (
                 <Link className="group grid grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-white/10 pb-3" href={`/products/${product.slug}`} key={product.slug}>
                   <span className="font-mono text-xs text-slate-500">0{index + 1}</span>
                   <span className="min-w-0">
@@ -119,6 +125,35 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {dealFeedSections.length > 0 ? (
+        <section className="border-b border-slate-200 bg-slate-50">
+          <div className="mx-auto w-full max-w-7xl space-y-12 px-4 py-12 sm:px-6 lg:px-8">
+            {dealFeedSections.map((section) => (
+              <div key={section.key}>
+                <div className="mb-6 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase text-emerald-700">DEAL ENGINE SIGNAL</p>
+                    <h2 className="mt-2 text-2xl font-black sm:text-3xl">{section.title}</h2>
+                    <p className="mt-2 text-sm text-slate-500">{section.description}</p>
+                  </div>
+                  <Link className="shrink-0 text-sm font-bold text-emerald-700 hover:text-emerald-900" href="/deals">전체 보기 →</Link>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {section.items.slice(0, 4).map((item) => (
+                    <div className="relative" key={`${section.key}-${item.dealId}`}>
+                      <span className="absolute right-3 top-3 z-20 bg-emerald-600 px-2 py-1 text-xs font-black text-white shadow-sm">
+                        {item.eventLabel}
+                      </span>
+                      <ProductCard product={item.product} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="ticker-shell border-b border-slate-200 bg-emerald-600 py-3 text-white" aria-label="실시간 특가">
         <div className="ticker-track">
@@ -163,7 +198,7 @@ export default async function Home() {
           <Link className="text-sm font-bold text-emerald-700 hover:text-emerald-900" href="/deals">전체 보기 →</Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredProducts.slice(0, 8).map((product) => <ProductCard key={product.slug} product={product} />)}
+          {primaryProducts.slice(0, 8).map((product) => <ProductCard key={product.slug} product={product} />)}
         </div>
       </section>
 

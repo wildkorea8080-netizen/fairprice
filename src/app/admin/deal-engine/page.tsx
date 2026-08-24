@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createDealScoreConfigVersion } from "@/app/admin/actions";
 import { getAdminDealEngineOverview } from "@/lib/admin-deal-engine";
 import { formatKoreanPrice } from "@/lib/deal-products";
 
@@ -46,7 +47,27 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function AdminDealEnginePage() {
+type AdminDealEnginePageProps = {
+  searchParams: Promise<{ status?: string }>;
+};
+
+const weightFields = [
+  ["averageDrop", "평균가 대비 하락"],
+  ["lowestPriceProximity", "최저가 근접도"],
+  ["dropVelocity", "가격 하락 속도"],
+  ["historicalPercentile", "과거 가격 분포"],
+  ["dataConfidence", "데이터 신뢰도"],
+] as const;
+
+const thresholdFields = [
+  ["good", "괜찮은 가격"],
+  ["deal", "특가"],
+  ["special", "초특가"],
+  ["legendary", "역대급"],
+] as const;
+
+export default async function AdminDealEnginePage({ searchParams }: AdminDealEnginePageProps) {
+  const params = await searchParams;
   const overview = await getAdminDealEngineOverview();
 
   if (!overview) {
@@ -59,6 +80,16 @@ export default async function AdminDealEnginePage() {
 
   return (
     <div className="grid gap-6">
+      {params.status === "score-config-created" ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+          새 Deal Score 버전을 활성화했습니다. 다음 가격 수집부터 적용됩니다.
+        </div>
+      ) : null}
+      {params.status === "score-config-invalid" ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">
+          설정을 적용하지 못했습니다. 가중치 합계가 100인지, 임계값 순서가 올바른지 확인해 주세요.
+        </div>
+      ) : null}
       <div>
         <p className="text-sm font-bold text-emerald-700">Deal Engine Operations</p>
         <h2 className="mt-1 text-2xl font-bold">가격 신호 및 Hot Deal 관제</h2>
@@ -76,6 +107,59 @@ export default async function AdminDealEnginePage() {
         <Stat label="신뢰도 확보" value={`${overview.confidence.reliable}개`} />
         <Stat label="활성 Hot Deal" value={`${overview.activeDeals}개`} />
       </div>
+
+      {overview.activeConfig ? (
+        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm" id="score-config">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-emerald-700">Score Configuration</p>
+              <h3 className="mt-1 text-xl font-bold">Deal Score V{overview.activeConfig.version}</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                값을 변경하면 기존 버전은 보존되고 새 버전이 활성화됩니다. 과거 분석에는 당시 버전이 계속 기록됩니다.
+              </p>
+            </div>
+            <span className="rounded bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">ACTIVE</span>
+          </div>
+          <form action={createDealScoreConfigVersion} className="mt-6 grid gap-6">
+            <fieldset>
+              <legend className="font-bold">가중치 · 합계 100</legend>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {weightFields.map(([key, label]) => (
+                  <label className="grid gap-2 text-sm font-semibold text-slate-600" key={key}>
+                    {label}
+                    <input className="rounded-md border border-slate-300 px-3 py-2 text-slate-950" defaultValue={overview.activeConfig?.weights[key]} max="100" min="0" name={key} required type="number" />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="font-bold">판정 임계값</legend>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {thresholdFields.map(([key, label]) => (
+                  <label className="grid gap-2 text-sm font-semibold text-slate-600" key={key}>
+                    {label}
+                    <input className="rounded-md border border-slate-300 px-3 py-2 text-slate-950" defaultValue={overview.activeConfig?.thresholds[key]} max="100" min="0" name={key} required type="number" />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+              <p className="text-xs text-slate-500">저장 즉시 새 버전이 생성되며 다음 분석부터 사용됩니다.</p>
+              <button className="rounded-md bg-slate-950 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800" type="submit">새 버전으로 적용</button>
+            </div>
+          </form>
+          {overview.configs.length > 1 ? (
+            <div className="mt-6 border-t border-slate-200 pt-5">
+              <p className="text-sm font-bold">최근 버전</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {overview.configs.map((config) => (
+                  <span className={`rounded px-3 py-2 text-xs font-bold ${config.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`} key={config.id}>V{config.version} · {config.isActive ? "활성" : "종료"}</span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-4">
@@ -155,4 +239,3 @@ export default async function AdminDealEnginePage() {
     </div>
   );
 }
-

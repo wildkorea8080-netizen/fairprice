@@ -1,12 +1,28 @@
 import "server-only";
 
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
+import {
+  DEFAULT_DEAL_SCORE_CONFIG,
+  type DealScoreThresholds,
+  type DealScoreWeights,
+} from "@/modules/deal-engine/domain/deal-score";
+
+function readNumberRecord<T extends Record<string, number>>(value: unknown, fallback: T): T {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return fallback;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(fallback).map(([key, fallbackValue]) => [
+      key,
+      typeof record[key] === "number" ? record[key] : fallbackValue,
+    ]),
+  ) as T;
+}
 
 export async function getAdminDealEngineOverview() {
   if (!isDatabaseConfigured()) return null;
 
   const now = new Date();
-  const [analyses, events, deals, totalEvents, activeDeals] = await Promise.all([
+  const [analyses, events, deals, totalEvents, activeDeals, scoreConfigs] = await Promise.all([
     prisma.dealAnalysisSnapshot.findMany({
       distinct: ["offerId"],
       include: {
@@ -65,10 +81,28 @@ export async function getAdminDealEngineOverview() {
     prisma.deal.count({
       where: { expiresAt: { gt: now }, status: "ACTIVE" },
     }),
+    prisma.dealScoreConfig.findMany({
+      orderBy: { version: "desc" },
+      take: 10,
+      where: { vertical: "SHOPPING" },
+    }),
   ]);
+
+  const configs = scoreConfigs.map((config) => ({
+    ...config,
+    thresholds: readNumberRecord<DealScoreThresholds>(
+      config.thresholds,
+      DEFAULT_DEAL_SCORE_CONFIG.thresholds,
+    ),
+    weights: readNumberRecord<DealScoreWeights>(
+      config.weights,
+      DEFAULT_DEAL_SCORE_CONFIG.weights,
+    ),
+  }));
 
   return {
     activeDeals,
+    activeConfig: configs.find(({ isActive }) => isActive) ?? configs[0] ?? null,
     analyses: analyses.sort(
       (left, right) =>
         right.score - left.score ||
@@ -79,9 +113,9 @@ export async function getAdminDealEngineOverview() {
       preliminary: analyses.filter(({ confidence }) => confidence === "PRELIMINARY").length,
       reliable: analyses.filter(({ confidence }) => confidence === "RELIABLE").length,
     },
+    configs,
     deals,
     events,
     totalEvents,
   };
 }
-

@@ -4,6 +4,77 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 import { ensureDatabaseUser } from "@/lib/users";
+import {
+  DEFAULT_DEAL_SCORE_CONFIG,
+  validateDealScoreConfig,
+  type DealScoreThresholds,
+  type DealScoreWeights,
+} from "@/modules/deal-engine/domain/deal-score";
+
+function readScoreNumber(formData: FormData, key: string) {
+  const value = Number(formData.get(key));
+  if (!Number.isFinite(value)) throw new Error(`Invalid ${key}`);
+  return value;
+}
+
+export async function createDealScoreConfigVersion(formData: FormData) {
+  await requireAdmin("/admin/deal-engine");
+
+  if (!isDatabaseConfigured()) {
+    redirect("/admin/deal-engine?status=database-required");
+  }
+
+  try {
+    const weights: DealScoreWeights = {
+      averageDrop: readScoreNumber(formData, "averageDrop"),
+      dataConfidence: readScoreNumber(formData, "dataConfidence"),
+      dropVelocity: readScoreNumber(formData, "dropVelocity"),
+      historicalPercentile: readScoreNumber(formData, "historicalPercentile"),
+      lowestPriceProximity: readScoreNumber(formData, "lowestPriceProximity"),
+    };
+    const thresholds: DealScoreThresholds = {
+      deal: readScoreNumber(formData, "deal"),
+      good: readScoreNumber(formData, "good"),
+      legendary: readScoreNumber(formData, "legendary"),
+      special: readScoreNumber(formData, "special"),
+    };
+    const latest = await prisma.dealScoreConfig.findFirst({
+      orderBy: { version: "desc" },
+      where: { key: DEFAULT_DEAL_SCORE_CONFIG.key },
+    });
+    const version = (latest?.version ?? 0) + 1;
+
+    validateDealScoreConfig({
+      key: DEFAULT_DEAL_SCORE_CONFIG.key,
+      thresholds,
+      version,
+      weights,
+    });
+
+    const changedAt = new Date();
+    await prisma.$transaction([
+      prisma.dealScoreConfig.updateMany({
+        data: { effectiveTo: changedAt, isActive: false },
+        where: { isActive: true, vertical: "SHOPPING" },
+      }),
+      prisma.dealScoreConfig.create({
+        data: {
+          effectiveFrom: changedAt,
+          isActive: true,
+          key: DEFAULT_DEAL_SCORE_CONFIG.key,
+          thresholds,
+          version,
+          vertical: "SHOPPING",
+          weights,
+        },
+      }),
+    ]);
+  } catch {
+    redirect("/admin/deal-engine?status=score-config-invalid#score-config");
+  }
+
+  redirect("/admin/deal-engine?status=score-config-created#score-config");
+}
 
 export async function createProduct(formData: FormData) {
   await requireAdmin();

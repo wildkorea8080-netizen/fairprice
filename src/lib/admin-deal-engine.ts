@@ -1,5 +1,6 @@
 import "server-only";
 
+import { selectDiverseProducts } from "@/lib/catalog/diverse-products";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 import {
   DEFAULT_DEAL_SCORE_CONFIG,
@@ -22,7 +23,7 @@ export async function getAdminDealEngineOverview() {
   if (!isDatabaseConfigured()) return null;
 
   const now = new Date();
-  const [analyses, events, deals, totalEvents, activeDeals, scoreConfigs] = await Promise.all([
+  const [analyses, events, deals, totalEvents, activeDeals, scoreConfigs, catalogProducts] = await Promise.all([
     prisma.dealAnalysisSnapshot.findMany({
       distinct: ["offerId"],
       include: {
@@ -86,7 +87,32 @@ export async function getAdminDealEngineOverview() {
       take: 10,
       where: { vertical: "SHOPPING" },
     }),
+    prisma.product.findMany({
+      include: { category: true },
+      orderBy: [{ discountRate: "desc" }, { updatedAt: "desc" }],
+      take: 120,
+      where: {
+        coupangExternalId: { not: null },
+        isActive: true,
+      },
+    }),
   ]);
+
+  const uniqueCatalogProducts = selectDiverseProducts({
+    limit: catalogProducts.length,
+    products: catalogProducts,
+  });
+  const homepagePreview = selectDiverseProducts({
+    limit: 24,
+    products: catalogProducts,
+  });
+  const categoryExposure = [...homepagePreview.reduce((counts, product) => {
+    const key = product.category.name;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>())]
+    .map(([name, count]) => ({ count, name }))
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name, "ko-KR"));
 
   const configs = scoreConfigs.map((config) => ({
     ...config,
@@ -114,6 +140,14 @@ export async function getAdminDealEngineOverview() {
       reliable: analyses.filter(({ confidence }) => confidence === "RELIABLE").length,
     },
     configs,
+    feedQuality: {
+      candidateCount: catalogProducts.length,
+      categoryExposure,
+      duplicateCount: catalogProducts.length - uniqueCatalogProducts.length,
+      previewCount: homepagePreview.length,
+      uniqueCategoryCount: categoryExposure.length,
+      uniqueProductCount: uniqueCatalogProducts.length,
+    },
     deals,
     events,
     totalEvents,

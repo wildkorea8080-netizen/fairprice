@@ -19,6 +19,7 @@
     "test:title-similarity": "node --no-warnings --experimental-strip-types scripts/test-title-similarity.mjs",
     "test:diverse-products": "node --no-warnings --experimental-strip-types scripts/test-diverse-products.mjs",
     "test:collection-job-selection": "node --no-warnings --experimental-strip-types scripts/test-collection-job-selection.mjs",
+    "test:adsense": "node --no-warnings --experimental-strip-types scripts/test-adsense.mjs",
     "test:deal-engine": "npm run test:deal-score && npm run test:deal-detection",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "cron:pipeline": "node scripts/run-cron-pipeline.mjs --batchSize=5 --clickKeywordLimit=10 --sendDryRun=false",

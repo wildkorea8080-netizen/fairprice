@@ -102,6 +102,12 @@ const optionalChecks = [
     label: "Google verification",
     message: "Add before submitting the domain to Google Search Console.",
   },
+  {
+    key: "GOOGLE_ADSENSE_PUBLISHER_ID",
+    label: "Google AdSense publisher ID",
+    validate: (value) => /^(?:ca-)?pub-\d{10,}$/.test(value?.trim() || ""),
+    message: "Add the pub-... publisher ID so /ads.txt can be served.",
+  },
 ];
 
 function parseArgs(argv) {
@@ -189,7 +195,7 @@ function main() {
   }
 
   for (const check of optionalChecks) {
-    if (hasValue(env[check.key])) {
+    if (check.validate ? check.validate(env[check.key]) : hasValue(env[check.key])) {
       printResult("PASS", check.label, "configured");
     } else {
       warnCount += 1;

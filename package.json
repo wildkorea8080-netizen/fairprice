@@ -17,6 +17,7 @@
     "test:deal-detection": "node --no-warnings --experimental-strip-types scripts/test-deal-detection.mjs",
     "test:units": "node --no-warnings --experimental-strip-types scripts/test-unit-normalizer.mjs",
     "test:title-similarity": "node --no-warnings --experimental-strip-types scripts/test-title-similarity.mjs",
+    "test:diverse-products": "node --no-warnings --experimental-strip-types scripts/test-diverse-products.mjs",
     "test:deal-engine": "npm run test:deal-score && npm run test:deal-detection",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "cron:pipeline": "node scripts/run-cron-pipeline.mjs --batchSize=5 --clickKeywordLimit=10 --sendDryRun=false",

@@ -2,6 +2,10 @@ import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
 import {
+  createProductDedupeSet,
+  selectDiverseProducts,
+} from "@/lib/catalog/diverse-products";
+import {
   buildDealFeedSections,
   getActiveDealFeed,
   getRecentDealSignals,
@@ -18,16 +22,20 @@ const categoryMarks = ["01", "02", "03", "04", "05", "06", "07", "08"];
 
 export default async function Home() {
   const [featuredProducts, categories, activeDealFeed, recentDealSignals] = await Promise.all([
-    getDealProducts({ limit: 12 }),
+    getDealProducts({ limit: 60 }),
     getPublicCategories(),
     getActiveDealFeed(40),
     getRecentDealSignals(24),
   ]);
   const visibleDealFeed = activeDealFeed.length > 0 ? activeDealFeed : recentDealSignals;
   const dealFeedSections = buildDealFeedSections(visibleDealFeed);
-  const primaryProducts = visibleDealFeed.length > 0
-    ? visibleDealFeed.slice(0, 12).map(({ product }) => product)
-    : featuredProducts;
+  const dealSectionProducts = dealFeedSections.flatMap(({ items }) => items.map(({ product }) => product));
+  const primaryProducts = selectDiverseProducts({
+    excludedKeys: createProductDedupeSet(dealSectionProducts),
+    limit: 8,
+    products: featuredProducts,
+  });
+  const briefingProducts = selectDiverseProducts({ limit: 3, products: featuredProducts });
   const appUrl = getAppUrl();
   const databaseProductCount = featuredProducts.filter(
     (product) => product.source === "database",
@@ -36,14 +44,15 @@ export default async function Home() {
   const lowestPriceCount = featuredProducts.filter(
     (product) => product.dealInsight.isLowestObserved,
   ).length;
-  const tickerProducts = [...primaryProducts.slice(0, 6), ...primaryProducts.slice(0, 6)];
+  const tickerSource = primaryProducts.length > 0 ? primaryProducts : briefingProducts;
+  const tickerProducts = [...tickerSource.slice(0, 6), ...tickerSource.slice(0, 6)];
   const websiteJsonLd = createWebSiteJsonLd({
     description:
       "쿠팡 상품 가격을 추적하고 할인율, 카테고리, 관심 키워드별 특가 알림을 제공하는 페어프라이스입니다.",
     name: "페어프라이스",
     url: appUrl,
   });
-  const itemListJsonLd = createProductItemListJsonLd({ products: featuredProducts, url: appUrl });
+  const itemListJsonLd = createProductItemListJsonLd({ products: featuredProducts.slice(0, 12), url: appUrl });
 
   return (
     <main className="flex-1 bg-[#f7f8fa] text-slate-950">
@@ -109,7 +118,7 @@ export default async function Home() {
               ))}
             </div>
             <div className="mt-6 space-y-3">
-              {primaryProducts.slice(0, 3).map((product, index) => (
+              {briefingProducts.map((product, index) => (
                 <Link className="group grid grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-white/10 pb-3" href={`/products/${product.slug}`} key={product.slug}>
                   <span className="font-mono text-xs text-slate-500">0{index + 1}</span>
                   <span className="min-w-0">
@@ -204,7 +213,7 @@ export default async function Home() {
           <Link className="text-sm font-bold text-emerald-700 hover:text-emerald-900" href="/deals">전체 보기 →</Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {primaryProducts.slice(0, 8).map((product) => <ProductCard key={product.slug} product={product} />)}
+          {primaryProducts.map((product) => <ProductCard key={product.slug} product={product} />)}
         </div>
       </section>
 

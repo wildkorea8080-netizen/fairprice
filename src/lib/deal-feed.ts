@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  getProductDedupeKeys,
+  selectDiverseProducts,
+} from "@/lib/catalog/diverse-products";
 import { getDealProducts, type DealProduct } from "@/lib/deal-products";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
@@ -201,20 +205,47 @@ export async function getRecentDealSignals(limit = 20): Promise<DealFeedItem[]> 
 
 export function buildDealFeedSections(items: DealFeedItem[]): DealFeedSection[] {
   const observedOnly = items.length > 0 && items.every(({ verification }) => verification === "OBSERVED");
+  const usedProductKeys = new Set<string>();
   const sections: DealFeedSection[] = (["hot", "drop", "lowest"] as DealFeedKind[])
-    .map((key) => ({ ...sectionCopy[key], items: items.filter((item) => item.kind === key), key }))
+    .map((key) => {
+      const candidates = items.filter((item) => item.kind === key);
+      const products = selectDiverseProducts({
+        excludedKeys: usedProductKeys,
+        limit: 4,
+        products: candidates.map((item) => item.product),
+      });
+      const selectedSlugs = new Set(products.map(({ slug }) => slug));
+      const sectionItems = candidates.filter(({ product }) => selectedSlugs.has(product.slug));
+
+      sectionItems.forEach(({ product }) => {
+        getProductDedupeKeys(product).forEach((dedupeKey) => usedProductKeys.add(dedupeKey));
+      });
+
+      return { ...sectionCopy[key], items: sectionItems, key };
+    })
     .map((section) => observedOnly
       ? { ...section, description: `${section.description} 충분한 가격 이력이 쌓일 때까지 검증 중으로 표시됩니다.` }
       : section)
     .filter(({ items: sectionItems }) => sectionItems.length > 0);
 
   if (items.length > 0) {
+    const recentCandidates = [...items].sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime());
+    const recentProducts = selectDiverseProducts({
+      excludedKeys: usedProductKeys,
+      limit: 4,
+      products: recentCandidates.map((item) => item.product),
+    });
+    const recentSlugs = new Set(recentProducts.map(({ slug }) => slug));
+    const recentItems = recentCandidates.filter(({ product }) => recentSlugs.has(product.slug));
+
+    if (recentItems.length === 0) return sections;
+
     sections.push({
       ...sectionCopy.recent,
       description: observedOnly
         ? "Deal Engine이 최근 포착한 검증 전 가격 신호입니다. 확정 Hot Deal과 구분해 표시합니다."
         : sectionCopy.recent.description,
-      items: [...items].sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime()).slice(0, 8),
+      items: recentItems,
       key: "recent",
     });
   }

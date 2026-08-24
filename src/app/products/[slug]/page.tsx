@@ -7,6 +7,7 @@ import {
 } from "@/app/alerts/actions";
 import { getProductBySlug } from "@/data/catalog";
 import { PriceHistoryChart } from "@/components/price-history-chart";
+import { PriceChangeTimeline } from "@/components/price-change-timeline";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
 import {
@@ -405,6 +406,7 @@ export default async function ProductPage({
             <div className="mt-6">
               <PriceHistoryChart points={databaseProduct.priceHistory.map((point) => ({ checkedAt: point.checkedAt.toISOString(), price: point.price }))} />
             </div>
+            <PriceChangeTimeline points={databaseProduct.priceHistory.map((point) => ({ checkedAt: point.checkedAt.toISOString(), price: point.price }))} />
             <details className="mt-5 border-t border-slate-200 pt-5">
               <summary className="cursor-pointer text-sm font-bold text-slate-700">가격 이력 표로 보기</summary>
               <div className="mt-4 max-h-80 overflow-auto">

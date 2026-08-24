@@ -410,7 +410,7 @@ export default async function ProductPage({
               <div className="mt-4 max-h-80 overflow-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="sticky top-0 bg-slate-100"><tr><th className="p-3">확인 시각</th><th className="p-3 text-right">가격</th></tr></thead>
-                  <tbody>{databaseProduct.priceHistory.map((point) => <tr className="border-b border-slate-100" key={point.checkedAt.toISOString()}><td className="p-3">{new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(point.checkedAt)}</td><td className="p-3 text-right font-bold">{formatKoreanPrice(point.price)}</td></tr>)}</tbody>
+                  <tbody>{databaseProduct.priceHistory.map((point, index) => <tr className="border-b border-slate-100" key={`${point.checkedAt.toISOString()}-${index}`}><td className="p-3">{new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(point.checkedAt)}</td><td className="p-3 text-right font-bold">{formatKoreanPrice(point.price)}</td></tr>)}</tbody>
                 </table>
               </div>
             </details>

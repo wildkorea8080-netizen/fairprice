@@ -183,7 +183,7 @@ export function PriceHistoryChart({ points }: { points: ChartPoint[] }) {
 
             {chart.xTickIndexes.map((index) => {
               const point = chart.coordinates[index];
-              return <text fill="#64748b" fontSize="12" key={point.checkedAt} textAnchor={index === 0 ? "start" : index === data.length - 1 ? "end" : "middle"} x={point.x} y={height - 13}>{formatDate(point.checkedAt)}</text>;
+              return <text fill="#64748b" fontSize="12" key={`${point.checkedAt}-${index}`} textAnchor={index === 0 ? "start" : index === data.length - 1 ? "end" : "middle"} x={point.x} y={height - 13}>{formatDate(point.checkedAt)}</text>;
             })}
 
             <path d={`${chart.path} L${chart.coordinates.at(-1)?.x},${height - padding.bottom} L${chart.coordinates[0].x},${height - padding.bottom} Z`} fill={`url(#${gradientId})`} />

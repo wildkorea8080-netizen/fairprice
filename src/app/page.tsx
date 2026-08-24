@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
-import { buildDealFeedSections, getActiveDealFeed } from "@/lib/deal-feed";
+import {
+  buildDealFeedSections,
+  getActiveDealFeed,
+  getRecentDealSignals,
+} from "@/lib/deal-feed";
 import { formatKoreanPrice, getDealProducts } from "@/lib/deal-products";
 import { getPublicCategories } from "@/lib/public-categories";
 import {
@@ -13,14 +17,16 @@ import {
 const categoryMarks = ["01", "02", "03", "04", "05", "06", "07", "08"];
 
 export default async function Home() {
-  const [featuredProducts, categories, activeDealFeed] = await Promise.all([
+  const [featuredProducts, categories, activeDealFeed, recentDealSignals] = await Promise.all([
     getDealProducts({ limit: 12 }),
     getPublicCategories(),
     getActiveDealFeed(40),
+    getRecentDealSignals(24),
   ]);
-  const dealFeedSections = buildDealFeedSections(activeDealFeed);
-  const primaryProducts = activeDealFeed.length > 0
-    ? activeDealFeed.slice(0, 12).map(({ product }) => product)
+  const visibleDealFeed = activeDealFeed.length > 0 ? activeDealFeed : recentDealSignals;
+  const dealFeedSections = buildDealFeedSections(visibleDealFeed);
+  const primaryProducts = visibleDealFeed.length > 0
+    ? visibleDealFeed.slice(0, 12).map(({ product }) => product)
     : featuredProducts;
   const appUrl = getAppUrl();
   const databaseProductCount = featuredProducts.filter(
@@ -143,7 +149,7 @@ export default async function Home() {
                   {section.items.slice(0, 4).map((item) => (
                     <div className="relative" key={`${section.key}-${item.dealId}`}>
                       <span className="absolute right-3 top-3 z-20 bg-emerald-600 px-2 py-1 text-xs font-black text-white shadow-sm">
-                        {item.eventLabel}
+                        {item.verification === "OBSERVED" ? "검증 중 · " : ""}{item.eventLabel}
                       </span>
                       <ProductCard product={item.product} />
                     </div>

@@ -14,6 +14,7 @@ export type DealFeedItem = {
   product: DealProduct;
   rankScore: number;
   score: number;
+  verification: "OBSERVED" | "VERIFIED";
 };
 
 export type DealFeedSection = {
@@ -97,7 +98,10 @@ export async function getActiveDealFeed(limit = 40): Promise<DealFeedItem[]> {
 
     if (productIds.size === 0) return [];
 
-    const products = await getDealProducts({ limit: 120 });
+    const products = await getDealProducts({
+      limit: productIds.size,
+      productIds: [...productIds],
+    });
     const productsById = new Map(
       (await prisma.product.findMany({
         select: { id: true, slug: true },
@@ -121,6 +125,7 @@ export async function getActiveDealFeed(limit = 40): Promise<DealFeedItem[]> {
         product,
         rankScore: deal.rankScore,
         score: deal.score,
+        verification: "VERIFIED" as const,
       }];
     });
   } catch {
@@ -129,13 +134,89 @@ export async function getActiveDealFeed(limit = 40): Promise<DealFeedItem[]> {
   }
 }
 
+export async function getRecentDealSignals(limit = 20): Promise<DealFeedItem[]> {
+  if (!isDatabaseConfigured()) return [];
+
+  try {
+    const now = new Date();
+    const events = await prisma.dealEvent.findMany({
+      include: {
+        offer: {
+          include: {
+            dealEntity: {
+              include: {
+                shoppingVariant: {
+                  select: { productId: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { detectedAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 60),
+      where: {
+        detectedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+    });
+    const productIds = new Set(
+      events
+        .map(({ offer }) => offer.dealEntity.shoppingVariant?.productId)
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    if (productIds.size === 0) return [];
+
+    const products = await getDealProducts({ limit: 120 });
+    const productsById = new Map(
+      (await prisma.product.findMany({
+        select: { id: true, slug: true },
+        where: { id: { in: [...productIds] } },
+      })).map(({ id, slug }) => [id, products.find((product) => product.slug === slug)]),
+    );
+
+    return events.flatMap((event) => {
+      const productId = event.offer.dealEntity.shoppingVariant?.productId;
+      const product = productId ? productsById.get(productId) : undefined;
+
+      if (!product) return [];
+
+      return [{
+        dealId: `signal-${event.id}`,
+        detectedAt: event.detectedAt,
+        eventLabel: getEventLabel(event.eventType),
+        eventType: event.eventType,
+        kind: getFeedKind(event.eventType),
+        product,
+        rankScore: event.score ?? 0,
+        score: event.score ?? product.dealInsight.dealScore,
+        verification: "OBSERVED" as const,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function buildDealFeedSections(items: DealFeedItem[]): DealFeedSection[] {
+  const observedOnly = items.length > 0 && items.every(({ verification }) => verification === "OBSERVED");
   const sections: DealFeedSection[] = (["hot", "drop", "lowest"] as DealFeedKind[])
     .map((key) => ({ ...sectionCopy[key], items: items.filter((item) => item.kind === key), key }))
+    .map((section) => observedOnly
+      ? { ...section, description: `${section.description} 충분한 가격 이력이 쌓일 때까지 검증 중으로 표시됩니다.` }
+      : section)
     .filter(({ items: sectionItems }) => sectionItems.length > 0);
 
   if (items.length > 0) {
-    sections.push({ ...sectionCopy.recent, items: [...items].sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime()).slice(0, 8), key: "recent" });
+    sections.push({
+      ...sectionCopy.recent,
+      description: observedOnly
+        ? "Deal Engine이 최근 포착한 검증 전 가격 신호입니다. 확정 Hot Deal과 구분해 표시합니다."
+        : sectionCopy.recent.description,
+      items: [...items].sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime()).slice(0, 8),
+      key: "recent",
+    });
   }
 
   return sections;

@@ -363,7 +363,7 @@ function sampleDealProducts() {
   }));
 }
 
-async function getDatabaseProducts(limit: number) {
+async function getDatabaseProducts(limit: number, productIds?: string[]) {
   return prisma.product.findMany({
     include: {
       category: true,
@@ -386,6 +386,7 @@ async function getDatabaseProducts(limit: number) {
     take: Math.min(Math.max(limit, 1), 120),
     where: {
       coupangExternalId: { not: null },
+      id: productIds ? { in: productIds } : undefined,
       isActive: true,
     },
   });
@@ -481,11 +482,13 @@ export async function getDealProducts({
   categorySlug,
   limit = 80,
   minDiscountRate,
+  productIds,
   searchQuery,
 }: {
   categorySlug?: string;
   limit?: number;
   minDiscountRate?: number;
+  productIds?: string[];
   searchQuery?: string;
 } = {}): Promise<DealProduct[]> {
   if (!isDatabaseConfigured()) {
@@ -497,7 +500,7 @@ export async function getDealProducts({
   }
 
   try {
-    const dbProducts = await getDatabaseProducts(limit);
+    const dbProducts = await getDatabaseProducts(limit, productIds);
 
     if (dbProducts.length === 0) {
       return filterDealProducts(sampleDealProducts(), {

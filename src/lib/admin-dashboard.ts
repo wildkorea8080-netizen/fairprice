@@ -97,8 +97,7 @@ export async function getAdminDashboardOverview() {
       dealEvents,
       highScoreProducts,
       reliable:
-        getCount(analyticsByConfidence, "confidence", "MEDIUM") +
-        getCount(analyticsByConfidence, "confidence", "HIGH"),
+        getCount(analyticsByConfidence, "confidence", "RELIABLE"),
     },
     categories,
     clickLogs,

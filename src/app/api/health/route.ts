@@ -8,6 +8,7 @@ import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 const AUTOMATION_FRESHNESS_MS = 60 * 60 * 1000;
 const PRICE_FRESHNESS_MS = 24 * 60 * 60 * 1000;
+const DEAL_ANALYSIS_FRESHNESS_MS = 24 * 60 * 60 * 1000;
 
 async function canReachDatabase() {
   if (!isDatabaseConfigured()) {
@@ -118,12 +119,87 @@ async function getPriceTrackingHealth(databaseReachable: boolean) {
   };
 }
 
+async function getDealEngineHealth(databaseReachable: boolean) {
+  if (!databaseReachable) {
+    return {
+      activeDeals: 0,
+      analyzedProducts: 0,
+      collecting: 0,
+      dealEvents: 0,
+      fresh: false,
+      latestAnalysisAt: null,
+      minutesSinceLatestAnalysis: null,
+      reliable: 0,
+      status: "unavailable",
+    };
+  }
+
+  try {
+    const [analyzedProducts, confidenceGroups, dealEvents, activeDeals, latest] =
+      await Promise.all([
+        prisma.productDealAnalytics.count(),
+        prisma.productDealAnalytics.groupBy({
+          by: ["confidence"],
+          _count: { _all: true },
+        }),
+        prisma.dealEvent.count(),
+        prisma.deal.count({ where: { status: "ACTIVE" } }),
+        prisma.productDealAnalytics.findFirst({
+          orderBy: { calculatedAt: "desc" },
+          select: { calculatedAt: true },
+        }),
+      ]);
+    const countConfidence = (
+      value: "COLLECTING" | "PRELIMINARY" | "RELIABLE",
+    ) =>
+      confidenceGroups.find(({ confidence }) => confidence === value)?._count
+        ._all ?? 0;
+    const latestAnalysisAt = latest?.calculatedAt ?? null;
+    const analysisAgeMs = latestAnalysisAt
+      ? Date.now() - latestAnalysisAt.getTime()
+      : null;
+    const fresh = Boolean(
+      analyzedProducts > 0 &&
+        analysisAgeMs !== null &&
+        analysisAgeMs <= DEAL_ANALYSIS_FRESHNESS_MS,
+    );
+
+    return {
+      activeDeals,
+      analyzedProducts,
+      collecting: countConfidence("COLLECTING"),
+      dealEvents,
+      fresh,
+      latestAnalysisAt: latestAnalysisAt?.toISOString() ?? null,
+      minutesSinceLatestAnalysis:
+        analysisAgeMs === null
+          ? null
+          : Math.max(0, Math.floor(analysisAgeMs / 60000)),
+      reliable: countConfidence("RELIABLE"),
+      status: fresh ? "ready" : analyzedProducts > 0 ? "stale" : "collecting",
+    };
+  } catch {
+    return {
+      activeDeals: 0,
+      analyzedProducts: 0,
+      collecting: 0,
+      dealEvents: 0,
+      fresh: false,
+      latestAnalysisAt: null,
+      minutesSinceLatestAnalysis: null,
+      reliable: 0,
+      status: "unavailable",
+    };
+  }
+}
+
 export async function GET() {
   const mode = getDeploymentMode();
   const databaseConfigured = isDatabaseConfigured();
   const databaseReachable = await canReachDatabase();
   const automation = await getAutomationHealth(databaseReachable);
   const priceTracking = await getPriceTrackingHealth(databaseReachable);
+  const dealEngine = await getDealEngineHealth(databaseReachable);
   const coupangPartnersConfigured = areCoupangCredentialsConfigured();
   const emailConfigured = getEmailConfig().isConfigured;
   const appUrlConfigured = Boolean(process.env.NEXT_PUBLIC_APP_URL);
@@ -152,10 +228,12 @@ export async function GET() {
         email: emailConfigured,
         legal: legalConfigured,
         automationFresh: automation.fresh,
+        dealEngineFresh: dealEngine.fresh,
         priceTrackingFresh: priceTracking.fresh,
         productionServices: productionServicesConfigured,
       },
       automation,
+      dealEngine,
       mode,
       priceTracking,
       service: "fairprice",

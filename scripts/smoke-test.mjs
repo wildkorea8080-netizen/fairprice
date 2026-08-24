@@ -70,6 +70,7 @@ const checks = [
       '"email":',
       '"legal":',
       '"automationFresh":',
+      '"dealEngineFresh":',
       '"priceTrackingFresh":',
       '"automation":',
       '"priceTracking":',

@@ -33,6 +33,11 @@ export async function getAdminDashboardOverview() {
     keywords,
     latestCronRun,
     latestProducts,
+    analyzedProducts,
+    analyticsByConfidence,
+    dealEvents,
+    activeDeals,
+    highScoreProducts,
   ] = await Promise.all([
     prisma.product.count({ where: { isActive: true } }),
     prisma.product.count({ where: { isActive: false } }),
@@ -69,10 +74,32 @@ export async function getAdminDashboardOverview() {
       take: 8,
       where: { coupangExternalId: { not: null } },
     }),
+    prisma.productDealAnalytics.count(),
+    prisma.productDealAnalytics.groupBy({
+      by: ["confidence"],
+      _count: { _all: true },
+    }),
+    prisma.dealEvent.count(),
+    prisma.deal.count({ where: { status: "ACTIVE" } }),
+    prisma.productDealAnalytics.count({ where: { score: { gte: 80 } } }),
   ]);
 
   return {
     averageDiscount: Math.round(avgDiscount._avg.discountRate ?? 0),
+    dealEngine: {
+      activeDeals,
+      analyzedProducts,
+      collecting: getCount(
+        analyticsByConfidence,
+        "confidence",
+        "COLLECTING",
+      ),
+      dealEvents,
+      highScoreProducts,
+      reliable:
+        getCount(analyticsByConfidence, "confidence", "MEDIUM") +
+        getCount(analyticsByConfidence, "confidence", "HIGH"),
+    },
     categories,
     clickLogs,
     featuredProducts,

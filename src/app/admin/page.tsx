@@ -152,6 +152,51 @@ export default async function AdminDashboardPage() {
         <StatCard label="평균 할인율" value={`${overview.averageDiscount}%`} />
       </div>
 
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-emerald-700">Deal Engine</p>
+            <h2 className="mt-1 text-xl font-bold">가격 분석 및 특가 탐지</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              첫 관측 상품은 수집 중으로 표시됩니다. 가격 표본과 추적 기간이
+              쌓여 신뢰도가 확보되고 80점 이상 가격 신호가 발생하면 특가 후보가
+              되며, 90점 이상은 활성 Hot Deal로 자동 승격됩니다.
+            </p>
+          </div>
+          <Link
+            className="rounded-md border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            href="/admin/products"
+          >
+            분석 상품 확인
+          </Link>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard
+            label="분석 완료"
+            value={`${overview.dealEngine.analyzedProducts}개`}
+          />
+          <StatCard
+            label="수집 중"
+            value={`${overview.dealEngine.collecting}개`}
+          />
+          <StatCard
+            label="신뢰도 확보"
+            value={`${overview.dealEngine.reliable}개`}
+          />
+          <StatCard
+            label="80점 이상"
+            value={`${overview.dealEngine.highScoreProducts}개`}
+          />
+          <StatCard
+            label="활성 Hot Deal"
+            value={`${overview.dealEngine.activeDeals}개`}
+          />
+        </div>
+        <p className="mt-4 text-sm text-slate-500">
+          누적 탐지 이벤트 {overview.dealEngine.dealEvents}건
+        </p>
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold">수집 작업</h2>

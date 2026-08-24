@@ -165,9 +165,9 @@ export default async function AdminDashboardPage() {
           </div>
           <Link
             className="rounded-md border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-            href="/admin/products"
+            href="/admin/deal-engine"
           >
-            분석 상품 확인
+            딜 엔진 관제
           </Link>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

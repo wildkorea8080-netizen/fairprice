@@ -7,6 +7,7 @@ const adminLinks = [
   { href: "/admin/keywords", label: "키워드 후보" },
   { href: "/admin/jobs", label: "작업 큐" },
   { href: "/admin/schedule", label: "자동 스케줄" },
+  { href: "/admin/deal-engine", label: "딜 엔진" },
   { href: "/admin/notifications", label: "알림 대기열" },
   { href: "/admin/clicks", label: "제휴 클릭" },
   { href: "/admin/discovery", label: "상품 발견" },

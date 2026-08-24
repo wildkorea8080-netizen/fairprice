@@ -9,6 +9,7 @@ import {
 } from "@/lib/coupang/normalize";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 import { refreshVariantDealAnalytics } from "@/lib/deal-analytics";
+import { normalizeProductUnit } from "@/lib/catalog/unit-normalizer";
 
 const MAX_COUPANG_COLLECTION_LIMIT = 10;
 
@@ -209,6 +210,7 @@ async function syncCatalogObservation(
   assessment: ObservationAssessment,
   requestId?: string,
 ) {
+  const normalizedUnit = normalizeProductUnit(product.title);
   const groupSlug = `coupang-product-${product.productId}`;
   const group = await tx.productGroup.upsert({
     create: {
@@ -261,6 +263,7 @@ async function syncCatalogObservation(
       externalKey: product.externalProductKey,
       isActive: true,
       optionName: product.title,
+      ...(normalizedUnit ?? {}),
       productGroupId: group.id,
       productId: compatibilityProductId,
     },
@@ -272,6 +275,7 @@ async function syncCatalogObservation(
       externalKey: product.externalProductKey,
       isActive: true,
       optionName: product.title,
+      ...(normalizedUnit ?? {}),
       productGroupId: group.id,
     },
     where: { productId: compatibilityProductId },

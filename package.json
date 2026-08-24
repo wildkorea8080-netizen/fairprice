@@ -15,6 +15,7 @@
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:deal-score": "node --no-warnings --experimental-strip-types scripts/test-deal-score.mjs",
     "test:deal-detection": "node --no-warnings --experimental-strip-types scripts/test-deal-detection.mjs",
+    "test:units": "node --no-warnings --experimental-strip-types scripts/test-unit-normalizer.mjs",
     "test:deal-engine": "npm run test:deal-score && npm run test:deal-detection",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "cron:pipeline": "node scripts/run-cron-pipeline.mjs --batchSize=5 --clickKeywordLimit=10 --sendDryRun=false",
@@ -29,6 +30,7 @@
     "db:logs": "docker compose logs -f postgres",
     "db:check": "node scripts/check-db.mjs",
     "db:verify-catalog": "node scripts/verify-catalog-migration.mjs",
+    "db:backfill-units": "node --no-warnings --experimental-strip-types scripts/backfill-product-units.mjs",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio"

@@ -38,6 +38,11 @@ export type DealProduct = Product & {
   lastCheckedAt?: Date | null;
   priceHistory: PricePoint[];
   source: "database" | "sample";
+  unitInfo?: {
+    label: string;
+    packCount: number;
+    quantity: number;
+  } | null;
 };
 
 const imageTones = [
@@ -446,6 +451,14 @@ function mapDatabaseProduct(product: Awaited<ReturnType<typeof getDatabaseProduc
     slug: product.slug,
     source: "database" as const,
     title: product.title,
+    unitInfo:
+      product.variant?.unitQuantity && product.variant.unitLabel
+        ? {
+            label: product.variant.unitLabel,
+            packCount: product.variant.packCount ?? 1,
+            quantity: Number(product.variant.unitQuantity),
+          }
+        : null,
   };
 }
 

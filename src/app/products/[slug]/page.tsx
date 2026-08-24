@@ -70,6 +70,24 @@ function getProductSeoImage(
   return undefined;
 }
 
+function getUnitPriceSummary(product: DealProduct) {
+  if (!product.unitInfo || product.unitInfo.quantity <= 0) return null;
+
+  const basis = ["g", "ml"].includes(product.unitInfo.label) ? 100 : 1;
+  const unitPrice = (product.price / product.unitInfo.quantity) * basis;
+  const formattedUnitPrice = new Intl.NumberFormat("ko-KR", {
+    maximumFractionDigits: unitPrice < 10 ? 1 : 0,
+  }).format(unitPrice);
+  const formattedQuantity = new Intl.NumberFormat("ko-KR", {
+    maximumFractionDigits: 3,
+  }).format(product.unitInfo.quantity);
+
+  return {
+    detail: `총 ${formattedQuantity}${product.unitInfo.label}${product.unitInfo.packCount > 1 ? ` · ${product.unitInfo.packCount}개 묶음` : ""}`,
+    price: `${basis}${product.unitInfo.label}당 ${formattedUnitPrice}원`,
+  };
+}
+
 function getProductJsonLd(
   product: DealProduct | NonNullable<ReturnType<typeof getProductBySlug>>,
 ) {
@@ -220,6 +238,9 @@ export default async function ProductPage({
 
   const imageUrl = databaseProduct?.imageUrl;
   const dealInsight = databaseProduct?.dealInsight;
+  const unitPriceSummary = databaseProduct
+    ? getUnitPriceSummary(databaseProduct)
+    : null;
   const verdict = dealInsight ? verdictCopy[dealInsight.verdict] : verdictCopy.collecting;
   const suggestedTargetPrice = Math.max(Math.floor(product.price * 0.95), 1);
   const statusMessage = status ? statusMessages[status] : "";
@@ -299,7 +320,15 @@ export default async function ProductPage({
           ) : null}
 
           <div className="mt-6 flex flex-wrap items-end gap-x-4 gap-y-2 border-y border-slate-200 py-5">
-            <p className="text-3xl font-black sm:text-4xl">{formatKoreanPrice(product.price)}</p>
+            <div>
+              <p className="text-3xl font-black sm:text-4xl">{formatKoreanPrice(product.price)}</p>
+              {unitPriceSummary ? (
+                <p className="mt-2 text-sm font-bold text-emerald-700">
+                  {unitPriceSummary.price}
+                  <span className="ml-2 font-medium text-slate-500">{unitPriceSummary.detail}</span>
+                </p>
+              ) : null}
+            </div>
             {product.discountRate > 0 ? <p className="pb-1 text-xl font-black text-rose-600">최고가 대비 ↓{product.discountRate}%</p> : null}
           </div>
 

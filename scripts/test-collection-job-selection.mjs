@@ -18,4 +18,15 @@ assert.deepEqual(
 );
 
 assert.deepEqual(selectBalancedCollectionJobs(candidates, 0), []);
+
+const now = new Date("2026-08-24T12:00:00.000Z");
+const agedSelection = selectBalancedCollectionJobs(
+  [
+    { categoryKey: "digital", createdAt: new Date("2026-08-24T12:00:00.000Z"), id: "fresh", priority: 40 },
+    { categoryKey: "life", createdAt: new Date("2026-08-23T06:00:00.000Z"), id: "aged", priority: 20 },
+  ],
+  1,
+  now,
+);
+assert.equal(agedSelection[0]?.id, "aged", "오래 대기한 작업은 최대 30점까지 우선순위가 보정되어야 합니다.");
 console.log("balanced collection job selection tests passed");

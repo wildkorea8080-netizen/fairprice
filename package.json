@@ -21,6 +21,7 @@
     "test:collection-job-selection": "node --no-warnings --experimental-strip-types scripts/test-collection-job-selection.mjs",
     "test:adsense": "node --no-warnings --experimental-strip-types scripts/test-adsense.mjs",
     "test:data-confidence": "node --no-warnings --experimental-strip-types scripts/test-data-confidence.mjs",
+    "test:tracking-priority": "node --no-warnings --experimental-strip-types scripts/test-tracking-priority.mjs",
     "test:deal-engine": "npm run test:deal-score && npm run test:deal-detection",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "cron:pipeline": "node scripts/run-cron-pipeline.mjs --batchSize=5 --clickKeywordLimit=10 --sendDryRun=false",

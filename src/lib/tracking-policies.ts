@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma, TrackingTier } from "@prisma/client";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
+import { getTrackingConfidenceBoost } from "@/modules/deal-engine/domain/tracking-priority";
 
 const TIER_INTERVALS: Record<TrackingTier, number> = {
   A: 60,
@@ -23,9 +24,14 @@ function calculatePolicy(product: {
   discoveries: Array<{ source: string }>;
   isActive: boolean;
   isFeatured: boolean;
-  variant: { dataQuality: { anomalousSamples: number } | null } | null;
+  variant: {
+    dataQuality: {
+      anomalousSamples: number;
+      confidence: "COLLECTING" | "PRELIMINARY" | "RELIABLE";
+    } | null;
+  } | null;
 }) {
-  const reasons: Record<string, number | boolean> = {};
+  const reasons: Record<string, number | boolean | string> = {};
   let score = product.isActive ? 5 : 0;
   const ageDays = (Date.now() - product.createdAt.getTime()) / 86_400_000;
 
@@ -68,6 +74,14 @@ function calculatePolicy(product: {
   if (anomalies > 0) {
     reasons.anomalies = anomalies;
     score += Math.min(anomalies * 5, 15);
+  }
+
+  const confidence = product.variant?.dataQuality?.confidence;
+  const confidenceBoost = getTrackingConfidenceBoost(confidence);
+  if (confidenceBoost > 0 && confidence) {
+    reasons.dataConfidence = confidence;
+    reasons.confidenceBoost = confidenceBoost;
+    score += confidenceBoost;
   }
 
   const priorityScore = Math.min(score, 100);

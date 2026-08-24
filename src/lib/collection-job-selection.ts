@@ -1,18 +1,34 @@
 type CollectionCandidate = {
   categoryKey: string;
+  createdAt?: Date;
   priority: number;
 };
+
+const MAX_AGING_BOOST = 30;
+
+export function getEffectiveCollectionPriority(
+  candidate: CollectionCandidate,
+  now = new Date(),
+) {
+  if (!candidate.createdAt) return candidate.priority;
+  const waitingHours = Math.max(
+    0,
+    Math.floor((now.getTime() - candidate.createdAt.getTime()) / 3_600_000),
+  );
+  return Math.min(candidate.priority + Math.min(waitingHours, MAX_AGING_BOOST), 100);
+}
 
 export function selectBalancedCollectionJobs<T extends CollectionCandidate>(
   candidates: T[],
   limit: number,
+  now = new Date(),
 ) {
   if (limit <= 0) return [];
 
   const priorityBands = new Map<number, Map<string, T[]>>();
 
   for (const candidate of candidates) {
-    const band = Math.floor(candidate.priority / 10);
+    const band = Math.floor(getEffectiveCollectionPriority(candidate, now) / 10);
     const categoryQueues = priorityBands.get(band) ?? new Map<string, T[]>();
     const queue = categoryQueues.get(candidate.categoryKey) ?? [];
     queue.push(candidate);

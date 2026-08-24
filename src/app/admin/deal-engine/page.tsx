@@ -18,6 +18,11 @@ const confidenceLabels = {
   RELIABLE: "신뢰도 확보",
 } as const;
 
+const nextConfidenceLabels = {
+  PRELIMINARY: "예비 검증",
+  RELIABLE: "신뢰도 확보",
+} as const;
+
 function formatDate(date: Date | null) {
   if (!date) return "-";
   return new Intl.DateTimeFormat("ko-KR", {
@@ -207,7 +212,7 @@ export default async function AdminDealEnginePage({ searchParams }: AdminDealEng
           {overview.analyses.slice(0, 30).map((analysis) => {
             const product = productFor(analysis);
             return (
-              <div className="grid gap-3 px-5 py-4 lg:grid-cols-[1.5fr_0.45fr_0.6fr_0.65fr_0.8fr] lg:items-center" key={analysis.id}>
+              <div className="grid gap-3 px-5 py-4 lg:grid-cols-[1.4fr_0.35fr_0.55fr_1.15fr_0.7fr] lg:items-center" key={analysis.id}>
                 <div>
                   {product.slug ? (
                     <Link className="font-bold hover:text-emerald-700" href={`/products/${product.slug}`}>{product.title}</Link>
@@ -216,7 +221,34 @@ export default async function AdminDealEnginePage({ searchParams }: AdminDealEng
                 </div>
                 <p className="text-2xl font-black">{analysis.score}점</p>
                 <span className="w-fit rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{confidenceLabels[analysis.confidence]}</span>
-                <p className="text-sm"><strong>{analysis.sampleCount}회</strong><br /><span className="text-slate-500">{analysis.trackingDays}일 추적</span></p>
+                <div className="min-w-0">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <strong>{analysis.sampleCount}회 · {analysis.trackingDays}일</strong>
+                    <span className="text-slate-500">{analysis.confidenceProgress.progressPercent}%</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${analysis.confidenceProgress.progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {analysis.confidenceProgress.nextConfidence ? (
+                      <>
+                        {nextConfidenceLabels[analysis.confidenceProgress.nextConfidence]}까지
+                        {analysis.confidenceProgress.remainingSamples > 0
+                          ? ` ${analysis.confidenceProgress.remainingSamples}회`
+                          : ""}
+                        {analysis.confidenceProgress.remainingSamples > 0 && analysis.confidenceProgress.remainingDays > 0
+                          ? " ·"
+                          : ""}
+                        {analysis.confidenceProgress.remainingDays > 0
+                          ? ` ${analysis.confidenceProgress.remainingDays}일 남음`
+                          : ""}
+                      </>
+                    ) : "신뢰도 기준 충족"}
+                  </p>
+                </div>
                 <p className="text-sm"><strong>{formatKoreanPrice(analysis.currentPrice)}</strong><br /><span className="text-slate-500">평균 {formatKoreanPrice(analysis.averagePrice)}</span></p>
               </div>
             );

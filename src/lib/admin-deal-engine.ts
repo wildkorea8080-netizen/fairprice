@@ -7,6 +7,7 @@ import {
   type DealScoreThresholds,
   type DealScoreWeights,
 } from "@/modules/deal-engine/domain/deal-score";
+import { getDataConfidenceProgress } from "@/modules/deal-engine/domain/data-confidence";
 
 function readNumberRecord<T extends Record<string, number>>(value: unknown, fallback: T): T {
   if (!value || typeof value !== "object" || Array.isArray(value)) return fallback;
@@ -129,11 +130,20 @@ export async function getAdminDealEngineOverview() {
   return {
     activeDeals,
     activeConfig: configs.find(({ isActive }) => isActive) ?? configs[0] ?? null,
-    analyses: analyses.sort(
-      (left, right) =>
-        right.score - left.score ||
-        right.calculatedAt.getTime() - left.calculatedAt.getTime(),
-    ),
+    analyses: analyses
+      .map((analysis) => ({
+        ...analysis,
+        confidenceProgress: getDataConfidenceProgress(
+          analysis.confidence,
+          analysis.sampleCount,
+          analysis.trackingDays,
+        ),
+      }))
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          right.calculatedAt.getTime() - left.calculatedAt.getTime(),
+      ),
     confidence: {
       collecting: analyses.filter(({ confidence }) => confidence === "COLLECTING").length,
       preliminary: analyses.filter(({ confidence }) => confidence === "PRELIMINARY").length,

@@ -10,6 +10,7 @@ import {
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 import { refreshVariantDealAnalytics } from "@/lib/deal-analytics";
 import { normalizeProductUnit } from "@/lib/catalog/unit-normalizer";
+import { calculateDataConfidence } from "@/modules/deal-engine/domain/data-confidence";
 
 const MAX_COUPANG_COLLECTION_LIMIT = 10;
 
@@ -188,18 +189,6 @@ async function assessPriceObservation(
   };
 }
 
-function getDataConfidence(validSamples: number, trackingDays: number) {
-  if (validSamples >= 20 && trackingDays >= 30) {
-    return "RELIABLE" as const;
-  }
-
-  if (validSamples >= 5 && trackingDays >= 7) {
-    return "PRELIMINARY" as const;
-  }
-
-  return "COLLECTING" as const;
-}
-
 async function syncCatalogObservation(
   tx: Prisma.TransactionClient,
   compatibilityProductId: string,
@@ -375,7 +364,7 @@ async function syncCatalogObservation(
   await tx.productDataQuality.upsert({
     create: {
       anomalousSamples,
-      confidence: getDataConfidence(validSamples, trackingDays),
+      confidence: calculateDataConfidence(validSamples, trackingDays),
       latestCheckedAt: checkedAt,
       latestSuccessAt: checkedAt,
       observedSamples,
@@ -385,7 +374,7 @@ async function syncCatalogObservation(
     },
     update: {
       anomalousSamples,
-      confidence: getDataConfidence(validSamples, trackingDays),
+      confidence: calculateDataConfidence(validSamples, trackingDays),
       consecutiveFailures: 0,
       latestCheckedAt: checkedAt,
       latestSuccessAt: checkedAt,

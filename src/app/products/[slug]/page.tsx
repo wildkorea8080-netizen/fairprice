@@ -315,13 +315,13 @@ export default async function ProductPage({
         </nav>
       </div>
 
-      <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
-        <div className={`relative flex min-h-80 items-center justify-center overflow-hidden border border-slate-200 ${product.imageTone}`}>
+      <section className="mx-auto grid w-full max-w-7xl items-start gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
+        <div className="relative aspect-square self-start overflow-hidden border border-slate-200 bg-white shadow-sm lg:sticky lg:top-24">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               alt={`${product.title} 상품 이미지`}
-              className="max-h-[520px] w-full object-contain p-8 sm:p-12"
+              className="h-full w-full object-contain p-5 sm:p-7"
               src={imageUrl}
             />
           ) : null}

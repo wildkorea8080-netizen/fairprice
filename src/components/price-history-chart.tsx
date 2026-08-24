@@ -37,6 +37,15 @@ function formatDate(value: string, includeTime = false) {
   }).format(new Date(value));
 }
 
+function formatAxisDate(timestamp: number, includeTime: boolean) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    day: "numeric",
+    hour: includeTime ? "2-digit" : undefined,
+    minute: includeTime ? "2-digit" : undefined,
+    month: "numeric",
+  }).format(new Date(timestamp));
+}
+
 export function PriceHistoryChart({ points }: { points: ChartPoint[] }) {
   const gradientId = useId().replaceAll(":", "");
   const [period, setPeriod] = useState<Period>(30);
@@ -86,9 +95,20 @@ export function PriceHistoryChart({ points }: { points: ChartPoint[] }) {
         y: padding.top + ratio * plotHeight,
       };
     });
-    const xTickIndexes = [...new Set([0, Math.floor((data.length - 1) / 2), data.length - 1])];
+    const includeTickTime = timeRange < 2 * 86_400_000;
+    const xTicks = [0, 0.5, 1].map((ratio) => ({
+      isMiddle: ratio === 0.5,
+      label: formatAxisDate(firstTime + timeRange * ratio, includeTickTime),
+      textAnchor:
+        ratio === 0
+          ? ("start" as const)
+          : ratio === 1
+            ? ("end" as const)
+            : ("middle" as const),
+      x: padding.left + plotWidth * ratio,
+    }));
 
-    return { coordinates, max, min, path, xTickIndexes, yTicks };
+    return { coordinates, max, min, path, xTicks, yTicks };
   }, [data]);
 
   const activePoint =
@@ -181,10 +201,19 @@ export function PriceHistoryChart({ points }: { points: ChartPoint[] }) {
               </g>
             ))}
 
-            {chart.xTickIndexes.map((index) => {
-              const point = chart.coordinates[index];
-              return <text fill="#64748b" fontSize="12" key={`${point.checkedAt}-${index}`} textAnchor={index === 0 ? "start" : index === data.length - 1 ? "end" : "middle"} x={point.x} y={height - 13}>{formatDate(point.checkedAt)}</text>;
-            })}
+            {chart.xTicks.map((tick) => (
+              <text
+                className={tick.isMiddle ? "hidden sm:inline" : undefined}
+                fill="#64748b"
+                fontSize="12"
+                key={`${tick.x}-${tick.label}`}
+                textAnchor={tick.textAnchor}
+                x={tick.x}
+                y={height - 13}
+              >
+                {tick.label}
+              </text>
+            ))}
 
             <path d={`${chart.path} L${chart.coordinates.at(-1)?.x},${height - padding.bottom} L${chart.coordinates[0].x},${height - padding.bottom} Z`} fill={`url(#${gradientId})`} />
             <path d={chart.path} fill="none" stroke="#059669" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />

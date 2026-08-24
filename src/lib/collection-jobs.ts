@@ -1,14 +1,38 @@
 import "server-only";
 
 import type { CollectionJobStatus, Prisma, PrismaClient } from "@prisma/client";
+import { selectBalancedCollectionJobs } from "@/lib/collection-job-selection";
 import { collectCoupangKeyword } from "@/lib/coupang/tracker";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
 export type CollectionJobProcessResult = {
+  categories: Record<string, number>;
   failed: number;
   processed: number;
   succeeded: number;
 };
+
+function getDominantCategory(
+  products: Array<{ product: { category: { name: string; slug: string } } }>,
+  fallbackKeyword: string,
+) {
+  const counts = new Map<string, { count: number; name: string }>();
+
+  for (const { product } of products) {
+    const current = counts.get(product.category.slug);
+    counts.set(product.category.slug, {
+      count: (current?.count ?? 0) + 1,
+      name: product.category.name,
+    });
+  }
+
+  return [...counts.entries()]
+    .sort((left, right) => right[1].count - left[1].count || left[0].localeCompare(right[0]))
+    .map(([key, value]) => ({ key, name: value.name }))[0] ?? {
+      key: `keyword:${fallbackKeyword.toLocaleLowerCase("ko-KR")}`,
+      name: "미분류",
+    };
+}
 
 export type CollectionJobOverview = {
   completed: number;
@@ -237,20 +261,42 @@ export async function processPendingCollectionJobs({
     throw new Error("DATABASE_URL is required for collection jobs.");
   }
 
-  const jobs = await prisma.collectionJob.findMany({
-    include: { collectionRule: true },
+  const candidates = await prisma.collectionJob.findMany({
+    include: {
+      collectionRule: {
+        include: {
+          products: {
+            include: {
+              product: { include: { category: true } },
+            },
+          },
+        },
+      },
+    },
     orderBy: [{ priority: "desc" }, { runAfter: "asc" }, { createdAt: "asc" }],
-    take: Math.min(Math.max(batchSize, 1), 20),
+    take: Math.min(Math.max(batchSize * 10, 50), 200),
     where: {
       runAfter: { lte: new Date() },
       status: "PENDING",
     },
   });
+  const jobs = selectBalancedCollectionJobs(
+    candidates.map((job) => {
+      const category = getDominantCategory(
+        job.collectionRule.products,
+        job.keyword,
+      );
+      return { ...job, categoryKey: category.key, categoryName: category.name };
+    }),
+    Math.min(Math.max(batchSize, 1), 20),
+  );
 
   let failed = 0;
   let succeeded = 0;
+  const categories: Record<string, number> = {};
 
   for (const job of jobs) {
+    categories[job.categoryName] = (categories[job.categoryName] ?? 0) + 1;
     await markJob(job.id, "RUNNING", {
       errorMessage: null,
       startedAt: new Date(),
@@ -314,6 +360,7 @@ export async function processPendingCollectionJobs({
   }
 
   return {
+    categories,
     failed,
     processed: jobs.length,
     succeeded,

@@ -10,6 +10,7 @@ import { PriceHistoryChart } from "@/components/price-history-chart";
 import { PriceChangeTimeline } from "@/components/price-change-timeline";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
+import { areProductTitlesComparable } from "@/lib/catalog/title-similarity";
 import {
   formatKoreanPrice,
   getDealProductBySlug,
@@ -253,6 +254,11 @@ export default async function ProductPage({
   const unitComparisonProducts = currentUnitPrice && databaseProduct
     ? [databaseProduct, ...relatedProducts]
         .filter((candidate) => candidate.unitInfo?.label === currentUnitPrice.label)
+        .filter(
+          (candidate) =>
+            candidate.slug === databaseProduct.slug ||
+            areProductTitlesComparable(databaseProduct.title, candidate.title),
+        )
         .map((candidate) => ({
           product: candidate,
           unitPrice: getComparableUnitPrice(candidate),
@@ -490,7 +496,7 @@ export default async function ProductPage({
                 <p className="text-xs font-black text-emerald-700">UNIT PRICE</p>
                 <h2 className="mt-2 text-2xl font-black">실구매 단위가격 비교</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  같은 단위가 확인된 유사 상품을 실제 구성 수량 기준으로 비교합니다.
+                  핵심 상품어와 단위가 같은 상품을 실제 구성 수량 기준으로 비교합니다.
                 </p>
               </div>
               <p className="text-sm font-bold text-slate-600">

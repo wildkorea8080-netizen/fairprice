@@ -95,8 +95,8 @@ export default async function AdminDealEnginePage({ searchParams }: AdminDealEng
         <h2 className="mt-1 text-2xl font-bold">가격 신호 및 Hot Deal 관제</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
           점수 산출 근거와 탐지 이벤트를 확인합니다. 수집 중 신호는 메인에서
-          검증 중으로 표시되고, 신뢰도가 확보된 90점 이상 상품만 확정 Hot Deal로
-          승격됩니다.
+          검증 중으로 표시되고, 신뢰도가 확보된 초특가 기준 이상 상품만 확정 Hot Deal로
+          승격됩니다. 현재 기준은 {overview.activeConfig?.thresholds.special ?? 90}점입니다.
         </p>
       </div>
 

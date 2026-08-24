@@ -3,11 +3,11 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { DataConfidence, Prisma } from "@prisma/client";
 import {
+  DEFAULT_DEAL_DETECTION_CONFIG,
   detectDealEvents,
   type DealEventType,
 } from "@/modules/deal-engine/domain/deal-detection";
 
-const HOT_DEAL_SCORE = 90;
 const HOT_DEAL_LIFETIME_MS = 48 * 3_600_000;
 
 const EVENT_PRIORITY: Record<DealEventType, number> = {
@@ -44,13 +44,17 @@ export async function detectAndPersistOfferDeals(
     confidence: DataConfidence;
     currentPrice: number;
     history: Array<{ checkedAt: Date; price: number }>;
+    highDealScore: number;
     offerId: string;
     previousPrice?: number;
     score: number;
     title: string;
   },
 ) {
-  const events = detectDealEvents(input);
+  const events = detectDealEvents(input, {
+    ...DEFAULT_DEAL_DETECTION_CONFIG,
+    highDealScore: input.highDealScore,
+  });
   const dateKey = getUtcDateKey(input.checkedAt);
   const expiresAt = new Date(input.checkedAt.getTime() + HOT_DEAL_LIFETIME_MS);
   const storedEvents = await Promise.all(
@@ -87,7 +91,7 @@ export async function detectAndPersistOfferDeals(
     }),
   );
   const canActivate =
-    input.score >= HOT_DEAL_SCORE && input.confidence !== "COLLECTING";
+    input.score >= input.highDealScore && input.confidence !== "COLLECTING";
 
   if (!canActivate) {
     await tx.deal.updateMany({

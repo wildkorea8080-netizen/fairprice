@@ -160,7 +160,7 @@ export default async function AdminDashboardPage() {
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
               첫 관측 상품은 수집 중으로 표시됩니다. 가격 표본과 추적 기간이
               쌓여 신뢰도가 확보되고 80점 이상 가격 신호가 발생하면 특가 후보가
-              되며, 90점 이상은 활성 Hot Deal로 자동 승격됩니다.
+              되며, 활성 점수 설정의 초특가 기준 이상은 Hot Deal로 자동 승격됩니다.
             </p>
           </div>
           <Link

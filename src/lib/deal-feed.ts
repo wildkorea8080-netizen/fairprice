@@ -26,7 +26,7 @@ export type DealFeedSection = {
 
 const sectionCopy: Record<DealFeedKind, Pick<DealFeedSection, "description" | "title">> = {
   hot: {
-    description: "신뢰도와 가격 이력을 통과한 90점 이상 특가입니다.",
+    description: "신뢰도와 가격 이력, 활성 초특가 기준을 통과한 상품입니다.",
     title: "오늘의 HOT DEAL",
   },
   drop: {

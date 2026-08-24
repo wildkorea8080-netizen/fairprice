@@ -35,4 +35,26 @@ const noHistoryEvents = detectDealEvents({
 
 assert.deepEqual(noHistoryEvents, []);
 
+const configurableThresholdEvents = detectDealEvents(
+  {
+    averagePrice: 100_000,
+    checkedAt,
+    confidence: "RELIABLE",
+    currentPrice: 100_000,
+    history,
+    score: 87,
+  },
+  {
+    averageDropRate: 10,
+    highDealScore: 85,
+    nearAllTimeLowRate: 2,
+    rapidDropRate: 10,
+  },
+);
+
+assert.equal(
+  configurableThresholdEvents.some(({ type }) => type === "HIGH_DEAL_SCORE"),
+  true,
+);
+
 console.log("Deal Detection tests passed.");

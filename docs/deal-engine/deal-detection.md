@@ -10,7 +10,8 @@ Deal Score calculation. Rules are deterministic and do not call an LLM.
 - `LOWEST_90D`: current price is below the prior 90-day minimum with 10+ samples
 - `NEAR_ALL_TIME_LOW`: within 2% of the prior all-time minimum with 5+ samples
 - `RAPID_DROP`: at least 10% below the previous changed price
-- `HIGH_DEAL_SCORE`: Deal Score is 90 or higher
+- `HIGH_DEAL_SCORE`: Deal Score reaches the active score config's `special`
+  threshold (90 by default)
 
 The current observation is excluded from historical reference minima. This
 prevents a new value from comparing against itself.
@@ -38,7 +39,7 @@ Deal is activated.
 
 A Hot Deal is automatically `ACTIVE` only when:
 
-- Deal Score is 90 or higher
+- Deal Score reaches the active score config's `special` threshold
 - confidence is `PRELIMINARY` or `RELIABLE`
 
 Active deals expire after 48 hours unless a later qualifying observation

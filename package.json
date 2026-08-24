@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/build.mjs",
-    "start": "next start",
+    "start": "npm run db:deploy && next start",
     "lint": "eslint",
     "check:env": "node scripts/check-production-env.mjs",
     "email:check": "node scripts/check-email-config.mjs",

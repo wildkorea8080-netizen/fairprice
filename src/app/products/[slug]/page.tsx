@@ -88,6 +88,18 @@ function getUnitPriceSummary(product: DealProduct) {
   };
 }
 
+function getComparableUnitPrice(product: DealProduct) {
+  if (!product.unitInfo || product.unitInfo.quantity <= 0) return null;
+
+  const basis = ["g", "ml"].includes(product.unitInfo.label) ? 100 : 1;
+
+  return {
+    basis,
+    label: product.unitInfo.label,
+    value: (product.price / product.unitInfo.quantity) * basis,
+  };
+}
+
 function getProductJsonLd(
   product: DealProduct | NonNullable<ReturnType<typeof getProductBySlug>>,
 ) {
@@ -234,6 +246,27 @@ export default async function ProductPage({
 
   const relatedProducts = databaseProduct
     ? await getRelatedDealProducts(databaseProduct, 8)
+    : [];
+  const currentUnitPrice = databaseProduct
+    ? getComparableUnitPrice(databaseProduct)
+    : null;
+  const unitComparisonProducts = currentUnitPrice && databaseProduct
+    ? [databaseProduct, ...relatedProducts]
+        .filter((candidate) => candidate.unitInfo?.label === currentUnitPrice.label)
+        .map((candidate) => ({
+          product: candidate,
+          unitPrice: getComparableUnitPrice(candidate),
+        }))
+        .filter(
+          (entry): entry is { product: DealProduct; unitPrice: NonNullable<ReturnType<typeof getComparableUnitPrice>> } =>
+            entry.unitPrice !== null,
+        )
+        .sort(
+          (a, b) =>
+            a.unitPrice.value - b.unitPrice.value ||
+            b.product.dealInsight.dealScore - a.product.dealInsight.dealScore,
+        )
+        .slice(0, 5)
     : [];
 
   const imageUrl = databaseProduct?.imageUrl;
@@ -445,6 +478,80 @@ export default async function ProductPage({
                 </table>
               </div>
             </details>
+          </div>
+        </section>
+      ) : null}
+
+      {unitComparisonProducts.length > 1 ? (
+        <section className="mx-auto w-full max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+          <div className="border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-black text-emerald-700">UNIT PRICE</p>
+                <h2 className="mt-2 text-2xl font-black">실구매 단위가격 비교</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  같은 단위가 확인된 유사 상품을 실제 구성 수량 기준으로 비교합니다.
+                </p>
+              </div>
+              <p className="text-sm font-bold text-slate-600">
+                낮은 단위가격 순
+              </p>
+            </div>
+
+            <div className="mt-6 overflow-x-auto border border-slate-200">
+              <table className="min-w-[760px] w-full text-left text-sm">
+                <thead className="bg-slate-100 text-xs text-slate-500">
+                  <tr>
+                    <th className="p-3">상품</th>
+                    <th className="p-3 text-right">판매가</th>
+                    <th className="p-3 text-right">총수량</th>
+                    <th className="p-3 text-right">단위가격</th>
+                    <th className="p-3 text-right">특가점수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unitComparisonProducts.map(({ product: candidate, unitPrice }, index) => {
+                    const isCurrent = candidate.slug === product.slug;
+                    const quantity = new Intl.NumberFormat("ko-KR", {
+                      maximumFractionDigits: 3,
+                    }).format(candidate.unitInfo?.quantity ?? 0);
+                    const formattedUnitPrice = new Intl.NumberFormat("ko-KR", {
+                      maximumFractionDigits: unitPrice.value < 10 ? 1 : 0,
+                    }).format(unitPrice.value);
+
+                    return (
+                      <tr
+                        className={`border-t border-slate-200 ${isCurrent ? "bg-emerald-50" : "bg-white"}`}
+                        key={candidate.slug}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-start gap-3">
+                            <span className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-black ${index === 0 ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <Link className="font-bold text-slate-900 hover:text-emerald-700" href={`/products/${candidate.slug}`}>
+                                {candidate.title}
+                              </Link>
+                              {isCurrent ? <p className="mt-1 text-xs font-bold text-emerald-700">현재 상품</p> : null}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-right font-bold">{formatKoreanPrice(candidate.price)}</td>
+                        <td className="p-3 text-right text-slate-600">{quantity}{candidate.unitInfo?.label}</td>
+                        <td className="p-3 text-right font-black text-emerald-700">
+                          {unitPrice.basis}{unitPrice.label}당 {formattedUnitPrice}원
+                        </td>
+                        <td className="p-3 text-right font-bold">{candidate.dealInsight.dealScore}점</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              상품명에서 명확하게 확인된 용량과 묶음 수량만 사용합니다. 옵션과 실제 구성은 쿠팡 판매 페이지에서 최종 확인해 주세요.
+            </p>
           </div>
         </section>
       ) : null}

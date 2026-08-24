@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { categories, products } from "@/data/catalog";
 import { getAppUrl } from "@/lib/app-config";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
+import { getProductSeoEligibility } from "@/lib/seo/product-indexability";
 import { getKeywordPath, getSeoKeywordPages } from "@/lib/seo-keywords";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +43,14 @@ async function getDatabaseProductUrls(appUrl: string) {
     const dbProducts = await prisma.product.findMany({
       orderBy: { updatedAt: "desc" },
       select: {
+        _count: {
+          select: { priceHistories: true },
+        },
+        currentPrice: true,
         imageUrl: true,
         lastCheckedAt: true,
         slug: true,
+        title: true,
         updatedAt: true,
       },
       take: 5000,
@@ -54,13 +60,29 @@ async function getDatabaseProductUrls(appUrl: string) {
       },
     });
 
-    return dbProducts.map((product) => ({
-      changeFrequency: "hourly" as const,
-      images: product.imageUrl ? [product.imageUrl] : undefined,
-      lastModified: product.lastCheckedAt ?? product.updatedAt,
-      priority: 0.8,
-      url: `${appUrl}/products/${product.slug}`,
-    }));
+    const now = new Date();
+
+    return dbProducts
+      .filter((product) =>
+        getProductSeoEligibility(
+          {
+            imageUrl: product.imageUrl,
+            lastCheckedAt: product.lastCheckedAt,
+            observedSamples: product._count.priceHistories,
+            price: product.currentPrice,
+            source: "database",
+            title: product.title,
+          },
+          now,
+        ).eligible,
+      )
+      .map((product) => ({
+        changeFrequency: "hourly" as const,
+        images: product.imageUrl ? [product.imageUrl] : undefined,
+        lastModified: product.lastCheckedAt ?? product.updatedAt,
+        priority: 0.8,
+        url: `${appUrl}/products/${product.slug}`,
+      }));
   } catch {
     return [];
   }

@@ -18,6 +18,7 @@ import {
   type DealProduct,
 } from "@/lib/deal-products";
 import { getProductOutboundPath } from "@/lib/outbound-links";
+import { getProductSeoEligibility } from "@/lib/seo/product-indexability";
 import {
   createBreadcrumbJsonLd,
   stringifyJsonLd,
@@ -160,6 +161,16 @@ export async function generateMetadata({
   const description = getProductSeoDescription(product);
   const image = getProductSeoImage(product);
   const title = `${product.title} ${product.discountRate}% 할인`;
+  const seoEligibility = databaseProduct
+    ? getProductSeoEligibility({
+        imageUrl: databaseProduct.imageUrl,
+        lastCheckedAt: databaseProduct.lastCheckedAt,
+        observedSamples: databaseProduct.dealInsight.observedSamples,
+        price: databaseProduct.price,
+        source: databaseProduct.source,
+        title: databaseProduct.title,
+      })
+    : { eligible: false };
 
   return {
     alternates: {
@@ -186,11 +197,11 @@ export async function generateMetadata({
       follow: true,
       googleBot: {
         follow: true,
-        index: true,
+        index: seoEligibility.eligible,
         "max-image-preview": "large",
         "max-snippet": -1,
       },
-      index: true,
+      index: seoEligibility.eligible,
     },
     title,
     twitter: {

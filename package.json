@@ -7,6 +7,7 @@
     "build": "node scripts/build.mjs",
     "start": "npm run db:deploy && next start",
     "lint": "eslint",
+    "test": "node scripts/run-tests.mjs",
     "check:env": "node scripts/check-production-env.mjs",
     "email:check": "node scripts/check-email-config.mjs",
     "email:test": "node scripts/send-test-email.mjs",

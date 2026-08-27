@@ -43,6 +43,9 @@ Open [http://localhost:3000](http://localhost:3000).
 - `npm run lint` runs ESLint.
 - `npm run test:smoke` verifies key public pages, SEO files, affiliate redirects,
   admin protection, and cron API auth guards against a running server.
+- `npm test` runs every `scripts/test-*.mjs` suite. It discovers them, so a new
+  test file is covered without registering anything. Pass part of a name to run
+  a subset: `npm test alert`.
 - `npm run test:deal-engine` runs the Deal Score and Deal Detection unit tests.
 - `npm run test:alert-delivery-policy` runs the alert dedupe and cooldown tests.
 - `npm run verify:deploy` runs the production env check, type check, lint,

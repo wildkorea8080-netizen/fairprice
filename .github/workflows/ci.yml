@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Coolify deploys are manual, so nothing here gates a release. This exists to
+# catch a broken push before someone presses Deploy hours later.
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Dockerfile. Prisma 7 needs 22.12 or newer.
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+        env:
+          # The build never reaches a database: isDatabaseConfigured() returns
+          # false during next build, and prisma.config.ts falls back to this URL
+          # for prisma generate.
+          DATABASE_URL: postgresql://fairprice:ci@localhost:5432/fairprice

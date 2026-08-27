@@ -42,20 +42,36 @@ Fairprice(`https://fairprice.kr`)는 쿠팡 상품 가격을 자동 수집·추�
 
 순수 로직을 새로 만들 때는 `src/lib/*.ts` 또는
 `src/modules/deal-engine/domain/*.ts`에 DB 접근 없는 함수로 분리하고,
-`scripts/test-*.mjs`에 `node:assert/strict` 단위 테스트를 추가한 뒤
-`package.json`에 `test:*` 스크립트를 등록한다.
+`scripts/test-*.mjs`에 `node:assert/strict` 단위 테스트를 추가한다.
+파일 이름만 규칙에 맞으면 `npm test`가 자동으로 집어간다.
 `src/lib/alert-delivery-policy.ts` + `scripts/test-alert-delivery-policy.mjs`가 표준 예시다.
+
+DB에 접근하는 코드는 별도 파일로 분리한다
+(`operational-health.ts`는 판정 로직, `reliability.ts`는 조회).
+이렇게 나눠야 판정 로직을 DB 없이 테스트할 수 있다.
 
 ## 검증 게이트
 
 커밋 전 아래를 모두 통과시킨다.
 
 ```bash
-npm run test:alert-delivery-policy
+npm test
 npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+`npm test`는 `scripts/test-*.mjs`를 **자동으로 찾아서** 전부 실행한다.
+새 테스트 파일을 만들면 등록 없이 게이트에 포함된다.
+개별 실행은 이름 일부를 넘긴다.
+
+```bash
+npm test alert      # test-alert-delivery-policy.mjs만 실행
+```
+
+푸시하면 `.github/workflows/ci.yml`이 같은 검사를 다시 돌린다.
+다만 Coolify 배포는 수동이므로 **CI가 배포를 막아주지는 않는다.**
+배포 전에 GitHub Actions가 초록인지 직접 확인한다.
 
 배포된 도메인까지 검증할 때는:
 

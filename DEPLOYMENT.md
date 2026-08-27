@@ -13,7 +13,42 @@ collection and notification pipeline.
 
 Do not treat demo mode as a production account system.
 
-## Vercel Deployment
+## Current Production Deployment (Coolify)
+
+`https://fairprice.kr` runs on a self-hosted Coolify instance (v4.3.11) at
+`115.68.222.86`, backed by Docker. Images are built from the `Dockerfile` in the
+repository root - not Nixpacks, whose pinned Node is older than Prisma 7
+requires. The release flow is:
+
+1. Verify locally: `npx tsc --noEmit`, `npm run lint`, `npm run build`.
+2. Commit and push to GitHub `main`.
+3. In Coolify, press **Force Redeploy** on the Fairprice application.
+4. Check `https://fairprice.kr/api/health` for the readiness summary.
+
+Coolify supplies the environment variables listed in `.env.production.example`.
+PostgreSQL runs as a separate Coolify service; `npm start` applies
+`prisma migrate deploy` before the server starts, so schema changes ship with
+the same redeploy.
+
+Collection runs as a Coolify **Scheduled Task** on the application resource:
+
+```text
+Name       cron-pipeline
+Command    npm run cron:pipeline
+Frequency  */30 * * * *
+```
+
+Prefer a Coolify scheduled task over a host `crontab` entry. Coolify recreates
+the application container on every deploy, so a `docker exec <container-name>`
+line in `crontab` stops working silently after the next release.
+
+To move the service to a different VPS, follow
+[`docs/SERVER_MIGRATION.md`](./docs/SERVER_MIGRATION.md). It covers the data
+dump, restore ordering, DNS cutover, cron re-registration, and rollback.
+
+The sections below describe alternative hosts and remain valid for reference.
+
+## Vercel Deployment (alternative)
 
 1. Push the repository to a private Git provider repository.
 2. Import the repository in Vercel as a Next.js project.
@@ -24,7 +59,7 @@ Do not treat demo mode as a production account system.
 
 The existing `build` and `start` scripts also support a standard Node.js host.
 
-## HestiaCP / VPS Deployment
+## HestiaCP / VPS Deployment (alternative)
 
 For a HestiaCP-managed cloud server, use HestiaCP for the domain, SSL, and Nginx
 reverse proxy, then run the Next.js app with PM2 on `127.0.0.1:3000`.

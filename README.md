@@ -1,6 +1,19 @@
 # Fairprice
 
-Fairprice is a new web service for monitoring Coupang discounts and sending deal alerts.
+Fairprice is a web service for monitoring Coupang prices, detecting deals, and
+sending deal alerts. It is live at [https://fairprice.kr](https://fairprice.kr).
+
+## Documentation
+
+Read these before changing anything:
+
+- [`docs/PROJECT_STATE.md`](./docs/PROJECT_STATE.md) - current state, architecture map, next priorities.
+- [`docs/DEAL_ENGINE_DIRECTIVE.md`](./docs/DEAL_ENGINE_DIRECTIVE.md) - non-negotiable architecture principles.
+- [`docs/IMPLEMENTATION_AUDIT.md`](./docs/IMPLEMENTATION_AUDIT.md) - domain boundaries and delivery gates.
+- [`docs/deal-engine/`](./docs/deal-engine/) - Deal Score, Deal Detection, and price history policy.
+- [`AGENTS.md`](./AGENTS.md) - conventions and verification gates for coding agents.
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Coolify release flow, cron setup, production gate.
+- [`docs/SERVER_MIGRATION.md`](./docs/SERVER_MIGRATION.md) - runbook for moving the service to a new VPS.
 
 ## Stack
 
@@ -30,6 +43,8 @@ Open [http://localhost:3000](http://localhost:3000).
 - `npm run lint` runs ESLint.
 - `npm run test:smoke` verifies key public pages, SEO files, affiliate redirects,
   admin protection, and cron API auth guards against a running server.
+- `npm run test:deal-engine` runs the Deal Score and Deal Detection unit tests.
+- `npm run test:alert-delivery-policy` runs the alert dedupe and cooldown tests.
 - `npm run verify:deploy` runs the production env check, type check, lint,
   production build, and smoke test.
 - `npm run check:env` checks production environment variables without printing
@@ -134,21 +149,17 @@ For a local readiness summary, run:
 npm run readiness:check
 ```
 
-## Build Steps
+## Deal Engine
 
-Development is intentionally staged. Step 1 initializes the project only. Later steps add layout, database, authentication, product management, alerts, and deployment.
+Price collection, statistics, scoring, and deal detection live in
+`src/modules/deal-engine` and never depend on a specific marketplace. Coupang
+support is an adapter in `src/modules/providers/coupang`. Deal Score and Deal
+Detection are deterministic - they never call an LLM.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The stage 10 build is prepared as a deployable MVP demo. See
-[`DEPLOYMENT.md`](./DEPLOYMENT.md) for environment variables, Vercel steps, the
-health endpoint, and the production readiness gate.
-
-For a HestiaCP cloud server deployment, see
-[`HESTIACP_DEPLOYMENT.md`](./HESTIACP_DEPLOYMENT.md). It covers PM2, Nginx
-reverse proxy, cron, PostgreSQL, and post-deploy smoke tests.
+Production runs on Coolify and redeploys from GitHub `main`. See
+[`DEPLOYMENT.md`](./DEPLOYMENT.md) for the release flow, environment variables,
+cron schedules, health endpoint, and the production readiness gate.
+[`HESTIACP_DEPLOYMENT.md`](./HESTIACP_DEPLOYMENT.md) documents the earlier
+HestiaCP/PM2 setup and is kept for reference.

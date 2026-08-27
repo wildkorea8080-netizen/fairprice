@@ -42,9 +42,16 @@ export function ProductCard({ product }: ProductCardProps) {
         >
           {product.category.name}
         </Link>
-        {dealInsight ? (
+        {/* Only badges that say something. "가격 추적중" is what every product
+            with low confidence gets, and right now that is nearly all of them,
+            so it labelled the whole grid without informing anyone - and the
+            score beside it put a precise number on data we just called
+            unreliable. The score still ranks the feed and drives detection; it
+            belongs on the detail page, where the confidence and sample count
+            sit next to it. */}
+        {dealInsight && dealInsight.badge !== "가격 추적중" ? (
           <span className="absolute bottom-3 left-3 bg-slate-950/90 px-3 py-2 text-xs font-bold text-white shadow-sm">
-            {dealInsight.badge} · {dealInsight.dealScore}점
+            {dealInsight.badge}
           </span>
         ) : null}
       </div>
@@ -113,10 +120,11 @@ export function ProductCard({ product }: ProductCardProps) {
               쿠팡 보기
             </a>
           </div>
-          <p className="text-xs leading-5 text-slate-500">
-            쿠팡 보기 링크는 쿠팡 파트너스 제휴 링크이며, 구매 시 페어프라이스가
-            일정액의 수수료를 제공받을 수 있습니다.
-          </p>
+          {/* The affiliate disclosure lives in the footer on every page and on
+              /affiliate-disclosure. Repeating it under each of two dozen cards
+              buried the products it was attached to. The outbound link keeps
+              rel="sponsored", and the product detail page states it beside its
+              own buy button. */}
           <form action={addFavoriteProduct}>
             <input name="slug" type="hidden" value={product.slug} />
             <input name="next" type="hidden" value={`/products/${product.slug}`} />

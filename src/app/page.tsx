@@ -25,14 +25,17 @@ export default async function Home() {
     getDealProducts({ limit: 60 }),
     getPublicCategories(),
     getActiveDealFeed(40),
-    getRecentDealSignals(24),
+    getRecentDealSignals(48),
   ]);
   const visibleDealFeed = activeDealFeed.length > 0 ? activeDealFeed : recentDealSignals;
   const dealFeedSections = buildDealFeedSections(visibleDealFeed);
   const dealSectionProducts = dealFeedSections.flatMap(({ items }) => items.map(({ product }) => product));
+  // The grid is the home page now, so it shows a browsable amount rather than
+  // a teaser. getDealProducts already fetches sixty; eight of them reached the
+  // page.
   const primaryProducts = selectDiverseProducts({
     excludedKeys: createProductDedupeSet(dealSectionProducts),
-    limit: 8,
+    limit: 24,
     products: featuredProducts,
   });
   const briefingProducts = selectDiverseProducts({ limit: 3, products: featuredProducts });

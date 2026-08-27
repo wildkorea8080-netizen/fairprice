@@ -211,7 +211,10 @@ export function buildDealFeedSections(items: DealFeedItem[]): DealFeedSection[] 
       const candidates = items.filter((item) => item.kind === key);
       const products = selectDiverseProducts({
         excludedKeys: usedProductKeys,
-        limit: 4,
+        // Two rows per section rather than one. These sections are the home
+        // page's main content, and four cards read as a sample of the feed
+        // rather than the feed itself.
+        limit: 8,
         products: candidates.map((item) => item.product),
       });
       const selectedSlugs = new Set(products.map(({ slug }) => slug));

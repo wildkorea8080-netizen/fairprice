@@ -6,6 +6,7 @@ import {
   addProductPriceAlert,
 } from "@/app/alerts/actions";
 import { getProductBySlug } from "@/data/catalog";
+import { describePriceGap } from "@/lib/price-gap";
 import { PriceHistoryChart } from "@/components/price-history-chart";
 import { PriceChangeTimeline } from "@/components/price-change-timeline";
 import { ProductCard } from "@/components/product-card";
@@ -236,12 +237,15 @@ function confidenceLabel(confidence: DealProduct["dealInsight"]["confidence"]) {
   return "낮음";
 }
 
+// Titles state the conclusion outright. "지금 구매를 고려할 만해요" leaves the
+// reader to decide what that means; the gap sentence underneath carries the
+// evidence in won.
 const verdictCopy = {
-  average: { eyebrow: "평균 가격대", title: "서두르지 않아도 괜찮아요", body: "관측 평균과 비슷한 가격입니다. 목표가 알림을 걸어두고 조금 더 지켜보세요.", tone: "border-sky-200 bg-sky-50 text-sky-950" },
-  collecting: { eyebrow: "가격 수집 중", title: "판단할 데이터를 모으고 있어요", body: "가격 기록이 더 쌓이면 평균가와 구매 타이밍을 정확하게 알려드릴게요.", tone: "border-slate-200 bg-slate-100 text-slate-950" },
-  good: { eyebrow: "좋은 가격", title: "지금 구매를 고려할 만해요", body: "관측 최고가와 평균가보다 낮은 구간에 들어왔습니다.", tone: "border-emerald-200 bg-emerald-50 text-emerald-950" },
-  lowest: { eyebrow: "관측 최저가", title: "추적 기간 중 가장 낮은 가격이에요", body: "현재까지 수집한 가격 중 최저 구간입니다. 재고와 최종 결제 가격을 확인해 보세요.", tone: "border-rose-200 bg-rose-50 text-rose-950" },
-  wait: { eyebrow: "고점 주의", title: "조금 더 기다리는 편이 좋아요", body: "현재 가격이 관측 평균보다 높은 구간입니다. 목표가 알림을 추천합니다.", tone: "border-amber-200 bg-amber-50 text-amber-950" },
+  average: { eyebrow: "평균 가격대", title: "평균 가격입니다", body: "목표가 알림을 걸어두고 조금 더 지켜보세요.", tone: "border-sky-200 bg-sky-50 text-sky-950" },
+  collecting: { eyebrow: "가격 수집 중", title: "아직 판단하기 이릅니다", body: "가격 기록이 더 쌓이면 평균가와 구매 타이밍을 정확하게 알려드릴게요.", tone: "border-slate-200 bg-slate-100 text-slate-950" },
+  good: { eyebrow: "좋은 가격", title: "지금 사도 괜찮습니다", body: "관측 최고가와 평균가보다 낮은 구간에 들어왔습니다.", tone: "border-emerald-200 bg-emerald-50 text-emerald-950" },
+  lowest: { eyebrow: "관측 최저가", title: "지금이 가장 쌉니다", body: "추적 이후 가장 낮은 구간입니다. 재고와 최종 결제 가격을 확인해 보세요.", tone: "border-rose-200 bg-rose-50 text-rose-950" },
+  wait: { eyebrow: "고점 주의", title: "지금은 비싼 편입니다", body: "목표가 알림을 걸어두고 가격이 내려올 때 받아보세요.", tone: "border-amber-200 bg-amber-50 text-amber-950" },
 } as const;
 
 export default async function ProductPage({
@@ -386,7 +390,13 @@ export default async function ProductPage({
             <div className={`mt-5 border p-5 ${verdict.tone}`}>
               <p className="text-xs font-black uppercase">{verdict.eyebrow} · 신뢰도 {confidenceLabel(dealInsight.confidence)}</p>
               <h2 className="mt-2 text-xl font-black">{verdict.title}</h2>
-              <p className="mt-2 text-sm leading-6 opacity-80">{verdict.body}</p>
+              {dealInsight.verdict === "collecting" ? null : (
+                <ul className="mt-3 space-y-1 text-sm font-bold">
+                  <li>{describePriceGap(product.price, dealInsight.lowestObservedPrice, "관측 최저가").text}</li>
+                  <li>{describePriceGap(product.price, dealInsight.averageObservedPrice, "관측 평균가").text}</li>
+                </ul>
+              )}
+              <p className="mt-3 text-sm leading-6 opacity-80">{verdict.body}</p>
               <p className="mt-3 text-xs font-semibold opacity-70">가격 {dealInsight.observedSamples}회 · {dealInsight.trackingDays}일 추적 · 마지막 확인 {formatCheckedAt(databaseProduct)}</p>
             </div>
           ) : null}
@@ -468,23 +478,24 @@ export default async function ProductPage({
               </div>
               <p className="text-sm text-slate-500">30분마다 자동 확인 · 최근 {dealInsight.observedSamples}회 관측</p>
             </div>
-            <div className="mt-6 grid grid-cols-2 border-l border-t border-slate-200 lg:grid-cols-4">
-              {[
-                ["현재가", product.price],
-                ["관측 최저가", dealInsight.lowestObservedPrice],
-                ["관측 평균가", dealInsight.averageObservedPrice],
-                ["관측 최고가", dealInsight.observedHighPrice],
-              ].map(([label, value]) => (
-                <div className="border-b border-r border-slate-200 p-4" key={label}>
-                  <p className="text-xs font-bold text-slate-500">{label}</p>
-                  <p className="mt-2 text-lg font-black">{formatKoreanPrice(Number(value))}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">현재 가격은 관측 가격대의 하위 {dealInsight.pricePercentile}% 지점입니다. 최저·평균·최고가는 페어프라이스가 수집한 기간을 기준으로 합니다.</p>
+            {/* 현재가·역대 최저가·차액은 차트 상단이 이미 보여준다. 여기서는
+                차트에 없는 값만 다룬다. */}
             <div className="mt-6">
               <PriceHistoryChart points={databaseProduct.priceHistory.map((point) => ({ checkedAt: point.checkedAt.toISOString(), price: point.price }))} />
             </div>
+            <div className="mt-6 grid grid-cols-3 border-l border-t border-slate-200">
+              {[
+                ["관측 평균가", formatKoreanPrice(dealInsight.averageObservedPrice)],
+                ["관측 최고가", formatKoreanPrice(dealInsight.observedHighPrice)],
+                ["가격대 위치", `하위 ${dealInsight.pricePercentile}%`],
+              ].map(([label, value]) => (
+                <div className="border-b border-r border-slate-200 p-4" key={label}>
+                  <p className="text-xs font-bold text-slate-500">{label}</p>
+                  <p className="mt-2 text-base font-black sm:text-lg">{value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-600">최저·평균·최고가는 페어프라이스가 수집한 기간을 기준으로 합니다. 판매자가 표기한 정가가 아니라 실제로 관측한 가격입니다.</p>
             <PriceChangeTimeline points={databaseProduct.priceHistory.map((point) => ({ checkedAt: point.checkedAt.toISOString(), price: point.price }))} />
             <details className="mt-5 border-t border-slate-200 pt-5">
               <summary className="cursor-pointer text-sm font-bold text-slate-700">가격 이력 표로 보기</summary>

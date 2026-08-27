@@ -1,12 +1,17 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
+import {
+  getAlertCooldownHours,
+  getAlertDeliveryDecision,
+} from "@/lib/alert-delivery-policy";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
 export type AlertEvaluationSummary = {
   created: number;
   matched: number;
   rules: number;
+  skippedCooldown: number;
   skippedDuplicates: number;
 };
 
@@ -142,6 +147,11 @@ export async function evaluateAlertRules(): Promise<AlertEvaluationSummary> {
         currentPrice: true,
         discountRate: true,
         id: true,
+        priceHistories: {
+          orderBy: { checkedAt: "desc" },
+          select: { discountRate: true, price: true },
+          take: 2,
+        },
         title: true,
       },
       where: {
@@ -153,7 +163,10 @@ export async function evaluateAlertRules(): Promise<AlertEvaluationSummary> {
 
   let created = 0;
   let matched = 0;
+  let skippedCooldown = 0;
   let skippedDuplicates = 0;
+  const cooldownHours = getAlertCooldownHours();
+  const now = new Date();
 
   for (const rule of rules) {
     const matchingProducts = products.filter((product) =>
@@ -161,19 +174,41 @@ export async function evaluateAlertRules(): Promise<AlertEvaluationSummary> {
     );
 
     matched += matchingProducts.length;
-
     for (const product of matchingProducts) {
-      const duplicate = await prisma.notificationLog.findFirst({
-        select: { id: true },
+      const previousObservation = product.priceHistories[1];
+      const wasConditionMet = previousObservation
+        ? productMatchesRule(
+            {
+              ...product,
+              currentPrice: previousObservation.price,
+              discountRate: previousObservation.discountRate,
+            },
+            rule,
+          )
+        : false;
+      const latestNotification = await prisma.notificationLog.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
         where: {
           alertRuleId: rule.id,
           productId: product.id,
           userId: rule.userId,
         },
       });
+      const decision = getAlertDeliveryDecision({
+        cooldownHours,
+        lastTriggeredAt: latestNotification?.createdAt,
+        now,
+        wasConditionMet,
+      });
 
-      if (duplicate) {
+      if (decision === "duplicate") {
         skippedDuplicates += 1;
+        continue;
+      }
+
+      if (decision === "cooldown") {
+        skippedCooldown += 1;
         continue;
       }
 
@@ -194,6 +229,7 @@ export async function evaluateAlertRules(): Promise<AlertEvaluationSummary> {
     created,
     matched,
     rules: rules.length,
+    skippedCooldown,
     skippedDuplicates,
   };
 }

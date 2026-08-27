@@ -16,6 +16,7 @@ type AdminNotificationsPageProps = {
   searchParams: Promise<{
     created?: string;
     count?: string;
+    cooldown?: string;
     error?: string;
     failed?: string;
     filter?: string;
@@ -180,7 +181,7 @@ function getStatusMessage(params: Awaited<AdminNotificationsPageProps["searchPar
       params.matched ?? 0
     }개, 새 대기열 ${params.created ?? 0}개, 중복 제외 ${
       params.skipped ?? 0
-    }개`;
+    }개, 쿨다운 제외 ${params.cooldown ?? 0}개`;
   }
 
   if (params.status === "send-dry-run") {

@@ -38,6 +38,7 @@ export async function evaluateNotificationsNow() {
     created: String(summary.created),
     matched: String(summary.matched),
     rules: String(summary.rules),
+    cooldown: String(summary.skippedCooldown),
     skipped: String(summary.skippedDuplicates),
     status: "evaluated",
   });

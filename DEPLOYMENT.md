@@ -70,6 +70,85 @@ domain is serving valid HTTPS.
 See [`HESTIACP_DEPLOYMENT.md`](./HESTIACP_DEPLOYMENT.md) for the full checklist,
 PM2 setup, Nginx proxy example, cron commands, and post-deploy smoke tests.
 
+## Database Backup and Restore
+
+### Scheduled backups
+
+Back up through the Coolify **PostgreSQL resource**, not a scheduled task on the
+application. The application container is recreated on every deploy, so a dump
+written inside it is discarded at the next release.
+
+```text
+Projects -> production -> fairprice-postgres -> Backups
+Frequency  0 4 * * *      (04:00 KST, the quietest point in the collection cycle)
+Retention  14
+Database   fairprice
+```
+
+The database is a few megabytes, so a fortnight of dumps costs almost nothing.
+
+### Keep a copy off the server
+
+Coolify writes backups to the same disk as the database. That covers a bad
+migration or a corrupted container; it does not cover losing the machine. If
+the Backups screen offers S3, point it at a bucket. Otherwise pull a copy down
+periodically:
+
+```bash
+ssh root@<host> 'ls -t /data/coolify/backups/databases/*/* | head -1'
+scp root@<host>:<path-from-above> ./backups/
+```
+
+`backups/` and `*.dump` are gitignored. A dump contains member emails and
+password hashes, so treat a local copy as production data and delete it when
+you no longer need it.
+
+### Restore
+
+`scripts/restore-postgres.mjs` refuses to run without an explicit confirmation,
+so an accidental invocation prints the plan and stops:
+
+```bash
+npm run db:restore -- --file=./backups/<file>.dump
+npm run db:restore -- --file=./backups/<file>.dump --confirm=RESTORE
+```
+
+Restoring into a database that already holds data needs `--clean=true`, which
+drops the existing objects first. Read that flag twice before using it against
+production.
+
+To restore straight into the server's container instead:
+
+```bash
+docker cp <file>.dump <postgres-container>:/tmp/restore.dump
+docker exec <postgres-container> pg_restore --no-owner --no-acl   -U fairprice -d fairprice /tmp/restore.dump
+docker exec <postgres-container> rm /tmp/restore.dump
+```
+
+Never add `-t` to `docker exec` around a dump or a restore. It allocates a TTY,
+which rewrites newlines and silently corrupts the archive.
+
+### Verify the backup is real
+
+A backup nobody has restored is a guess. After the first scheduled run, confirm
+the file exists and that its row counts match production:
+
+```bash
+find /data/coolify/backups -type f \( -name '*.gz' -o -name '*.dump' \) | head
+```
+
+```sql
+select (select count(*) from products) products,
+       (select count(*) from product_price_histories) histories,
+       (select count(*) from price_observations) observations,
+       (select count(*) from users) users,
+       (select count(*) from _prisma_migrations) migrations;
+```
+
+[`docs/SERVER_MIGRATION.md`](./docs/SERVER_MIGRATION.md) records the counts from
+the 2026-08-27 migration and walks through a full dump-and-restore against a
+second machine, which doubles as the restore drill.
+
 ## Health Monitoring
 
 `/api/health` reports database, Coupang Partners, cron secret, legal contact,

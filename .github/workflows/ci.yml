@@ -22,6 +22,12 @@ jobs:
 
       - run: npm ci
 
+      # Prisma 7 does not generate the client on install, and the generated
+      # types are what @prisma/client re-exports. Without this the type check
+      # reports every model as `any` and every enum as a missing export.
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Unit tests
         run: npm test
 

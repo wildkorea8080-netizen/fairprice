@@ -69,6 +69,11 @@ npm run build
 npm test alert      # test-alert-delivery-policy.mjs만 실행
 ```
 
+`node_modules`를 새로 설치한 뒤에는 **`npx prisma generate`를 먼저 실행한다.**
+Prisma 7은 설치 시 클라이언트를 생성하지 않으며, 생성물이 없으면 타입체크가
+모든 모델을 `any`로, enum을 "없는 export"로 보고한다. `npm run build`는
+내부에서 generate를 실행하므로 빌드를 한 번 돌렸다면 이미 준비된 상태다.
+
 푸시하면 `.github/workflows/ci.yml`이 같은 검사를 다시 돌린다.
 다만 Coolify 배포는 수동이므로 **CI가 배포를 막아주지는 않는다.**
 배포 전에 GitHub Actions가 초록인지 직접 확인한다.

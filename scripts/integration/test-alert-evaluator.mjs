@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resetDatabase } from "./db.mjs";
 import {
   addPriceHistory,
   createAlertRule,
@@ -18,7 +19,12 @@ const HOUR = 60 * 60 * 1000;
 export async function run(prisma) {
   const { evaluateAlertRules } = await import("@/lib/alert-evaluator");
 
+  // evaluateAlertRules evaluates every rule in the database, so each scenario
+  // starts from an empty one. Without this the rules left by earlier scenarios
+  // are re-evaluated and land in the summary counts being asserted here.
   async function scenario(name, build) {
+    await resetDatabase(prisma);
+
     const category = await createCategory(prisma);
     const user = await createUser(prisma);
     const context = { category, prisma, user };

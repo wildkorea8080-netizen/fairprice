@@ -27,9 +27,15 @@ export function applyMigrations(databaseUrl) {
 }
 
 /**
- * Empties every application table between suites. Reading the table list from
- * the catalog rather than hardcoding it means a new model cannot leave rows
- * behind and make a later test pass for the wrong reason.
+ * Empties every application table between scenarios. Reading the table list
+ * from the catalog rather than hardcoding it means a new model cannot leave
+ * rows behind and make a later test pass for the wrong reason.
+ *
+ * DELETE rather than TRUNCATE: truncating all thirty tables rebuilds their
+ * files and measured about twelve seconds per call here, which dominated the
+ * whole suite. Deleting from tables holding a handful of test rows takes tens
+ * of milliseconds. Suppressing foreign key triggers for the duration removes
+ * the need to order the deletes.
  */
 export async function resetDatabase(prisma) {
   const rows = await prisma.$queryRawUnsafe(`
@@ -41,11 +47,15 @@ export async function resetDatabase(prisma) {
     return;
   }
 
-  const tables = rows.map((row) => `"public"."${row.tablename}"`).join(", ");
+  await prisma.$executeRawUnsafe("set session_replication_role = replica");
 
-  await prisma.$executeRawUnsafe(
-    `truncate table ${tables} restart identity cascade`,
-  );
+  try {
+    for (const row of rows) {
+      await prisma.$executeRawUnsafe(`delete from "public"."${row.tablename}"`);
+    }
+  } finally {
+    await prisma.$executeRawUnsafe("set session_replication_role = origin");
+  }
 }
 
 export async function createPrismaClient(databaseUrl) {

@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   applyMigrations,
   createPrismaClient,
@@ -46,7 +46,8 @@ for (const file of files) {
 
   try {
     await resetDatabase(prisma);
-    const suite = await import(join(here, file));
+    // import() needs a file:// URL: a Windows path like D:\... parses as scheme 'd:'.
+    const suite = await import(pathToFileURL(join(here, file)).href);
 
     if (typeof suite.run !== "function") {
       throw new Error(`${file} does not export run(prisma)`);

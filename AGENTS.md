@@ -74,7 +74,19 @@ Prisma 7은 설치 시 클라이언트를 생성하지 않으며, 생성물이 �
 모든 모델을 `any`로, enum을 "없는 export"로 보고한다. `npm run build`는
 내부에서 generate를 실행하므로 빌드를 한 번 돌렸다면 이미 준비된 상태다.
 
+DB를 거치는 코드를 고쳤다면 통합 테스트도 돌린다. 별도 DB가 필요하다.
+
+```bash
+npm run db:up
+docker exec fairprice-postgres psql -U fairprice -d postgres -c "CREATE DATABASE fairprice_test OWNER fairprice;"
+TEST_DATABASE_URL=postgresql://fairprice:fairprice_local_dev@localhost:5432/fairprice_test npm run test:integration
+```
+
+`TEST_DATABASE_URL`이 없으면 건너뛴다(종료 코드 0). `DATABASE_URL`과 같으면
+실행을 거부한다 — **모든 테이블을 비우기 때문이다.**
+
 푸시하면 `.github/workflows/ci.yml`이 같은 검사를 다시 돌린다.
+CI에는 postgres 서비스가 붙어 있어 통합 테스트도 항상 실행된다.
 다만 Coolify 배포는 수동이므로 **CI가 배포를 막아주지는 않는다.**
 배포 전에 GitHub Actions가 초록인지 직접 확인한다.
 

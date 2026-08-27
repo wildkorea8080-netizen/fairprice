@@ -37,6 +37,10 @@ export async function createProduct(prisma, { categoryId, ...overrides } = {}) {
   return prisma.product.create({
     data: {
       categoryId,
+      // evaluateAlertRules only looks at products collected from Coupang
+      // (coupangExternalId is not null), so a seed without it is invisible to
+      // the evaluator and every assertion silently reads zero.
+      coupangExternalId: `coupang-${suffix}`,
       coupangUrl: `https://www.coupang.com/vp/products/${suffix}`,
       currentPrice,
       discountRate:

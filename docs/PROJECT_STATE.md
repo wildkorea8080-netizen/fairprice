@@ -140,8 +140,9 @@ npm run build                        PASS
 Codex의 최근 작업 흐름은 "사용자 화면에 직접 효과가 큰 것부터"였다.
 `IMPLEMENTATION_AUDIT.md`의 게이트 기준으로 남은 항목:
 
-1. **알림 품질 마무리** — 알림 구독 확인(confirm) 흐름, 발송 실패율 모니터링.
-   게이트 8의 confirmation 항목이 아직 비어 있다.
+1. **알림 품질 마무리** — 수신거부는 구현됐다(`src/lib/alert-subscriptions.ts`,
+   `/unsubscribe`, `List-Unsubscribe` 헤더). 남은 것은 알림 구독 확인(confirm) 흐름과
+   발송 실패율 모니터링이다.
 2. **운영 모니터링** — cron 실패·수집 실패율·이메일 실패율 알림. 게이트 10.
 3. **회귀 테스트 정비** — 현재 테스트는 순수 함수 단위 테스트 + 스모크 테스트뿐이다.
    Deal Engine 통합 경로에 대한 회귀 테스트가 없다 (지시서 STEP 10 미완).

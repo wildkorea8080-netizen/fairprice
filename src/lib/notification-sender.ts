@@ -1,6 +1,10 @@
 import "server-only";
 
 import {
+  createOneClickUnsubscribeUrl,
+  createUnsubscribeUrl,
+} from "@/lib/alert-subscriptions";
+import {
   escapeHtml,
   getEmailConfig,
   getMaskedEmailStatus,
@@ -100,6 +104,7 @@ function describeAlertRule(rule: PendingNotification["alertRule"]) {
 
 function buildNotificationBody(log: PendingNotification) {
   const product = log.product;
+  const unsubscribeUrl = createUnsubscribeUrl(log.userId);
   const price = formatWon(product.currentPrice);
   const originalPrice = formatWon(product.originalPrice);
   const discount = `${product.discountRate}%`;
@@ -135,6 +140,11 @@ function buildNotificationBody(log: PendingNotification) {
       </ul>
       <a href="${escapeHtml(trackedProductUrl)}" style="display: inline-block; background: #059669; color: #ffffff; text-decoration: none; padding: 12px 16px; border-radius: 6px; font-weight: 700;">쿠팡에서 보기</a>
       <p style="margin-top: 20px; color: #64748b; font-size: 12px;">이 링크는 쿠팡 파트너스 제휴 링크입니다.</p>
+      <hr style="margin: 24px 0 12px; border: 0; border-top: 1px solid #e2e8f0;" />
+      <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+        이 알림은 회원님이 등록한 알림 조건에 따라 발송되었습니다.
+        <a href="${escapeHtml(unsubscribeUrl)}" style="color: #64748b;">수신거부</a>
+      </p>
     </div>
   `;
 
@@ -145,6 +155,12 @@ async function sendResendEmail(log: PendingNotification) {
   const body = buildNotificationBody(log);
 
   await sendTransactionalEmail({
+    // RFC 8058 one-click unsubscribe. Gmail and Naver increasingly file
+    // repeated mail without these headers as spam.
+    headers: {
+      "List-Unsubscribe": `<${createOneClickUnsubscribeUrl(log.userId)}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
     html: body.html,
     subject: log.subject,
     text: body.text,

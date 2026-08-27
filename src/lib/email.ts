@@ -1,6 +1,7 @@
 import "server-only";
 
 export type TransactionalEmail = {
+  headers?: Record<string, string>;
   html: string;
   subject: string;
   text: string;
@@ -37,6 +38,7 @@ export function escapeHtml(value: string) {
 }
 
 export async function sendTransactionalEmail({
+  headers,
   html,
   subject,
   text,
@@ -51,6 +53,7 @@ export async function sendTransactionalEmail({
   const response = await fetch("https://api.resend.com/emails", {
     body: JSON.stringify({
       from: config.from,
+      ...(headers ? { headers } : {}),
       html,
       subject,
       text,

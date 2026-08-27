@@ -80,12 +80,20 @@ written inside it is discarded at the next release.
 
 ```text
 Projects -> production -> fairprice-postgres -> Backups
-Frequency  0 4 * * *      (04:00 KST, the quietest point in the collection cycle)
-Retention  14
-Database   fairprice
+Database selection  Specific databases
+Databases           fairprice
+Frequency           0 4 * * *
+Timezone            Asia/Seoul
+Retention           14
 ```
 
-The database is a few megabytes, so a fortnight of dumps costs almost nothing.
+**Set the timezone.** Coolify schedules in UTC when the field is left empty, so
+`0 4 * * *` would run at 13:00 KST - the middle of the day - instead of the
+quiet point in the collection cycle. Either set `Asia/Seoul`, or keep UTC and
+write the schedule as `0 19 * * *`.
+
+The database is a few megabytes, so a fortnight of dumps costs almost nothing
+and the default timeout is far more than the dump needs.
 
 ### Keep a copy off the server
 

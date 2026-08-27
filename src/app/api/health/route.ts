@@ -5,6 +5,9 @@ import { getEmailConfig } from "@/lib/email";
 import { isLegalConfigReady } from "@/lib/legal-config";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
+import { isReliabilityHealthy } from "@/lib/operational-health";
+import { getReliabilitySnapshot } from "@/lib/reliability";
+
 export const dynamic = "force-dynamic";
 const AUTOMATION_FRESHNESS_MS = 60 * 60 * 1000;
 const PRICE_FRESHNESS_MS = 24 * 60 * 60 * 1000;
@@ -200,6 +203,7 @@ export async function GET() {
   const automation = await getAutomationHealth(databaseReachable);
   const priceTracking = await getPriceTrackingHealth(databaseReachable);
   const dealEngine = await getDealEngineHealth(databaseReachable);
+  const reliability = databaseReachable ? await getReliabilitySnapshot() : null;
   const coupangPartnersConfigured = areCoupangCredentialsConfigured();
   const emailConfigured = getEmailConfig().isConfigured;
   const appUrlConfigured = Boolean(process.env.NEXT_PUBLIC_APP_URL);
@@ -231,11 +235,15 @@ export async function GET() {
         dealEngineFresh: dealEngine.fresh,
         priceTrackingFresh: priceTracking.fresh,
         productionServices: productionServicesConfigured,
+        reliabilityHealthy: reliability
+          ? isReliabilityHealthy(reliability.status)
+          : true,
       },
       automation,
       dealEngine,
       mode,
       priceTracking,
+      reliability,
       service: "fairprice",
       status: "ok",
       timestamp: new Date().toISOString(),

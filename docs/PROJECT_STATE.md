@@ -143,7 +143,11 @@ Codex의 최근 작업 흐름은 "사용자 화면에 직접 효과가 큰 것�
 1. **알림 품질 마무리** — 수신거부는 구현됐다(`src/lib/alert-subscriptions.ts`,
    `/unsubscribe`, `List-Unsubscribe` 헤더). 남은 것은 알림 구독 확인(confirm) 흐름과
    발송 실패율 모니터링이다.
-2. **운영 모니터링** — cron 실패·수집 실패율·이메일 실패율 알림. 게이트 10.
+2. **운영 모니터링** — 실패율 측정은 구현됐다(`src/lib/operational-health.ts`,
+   `/api/health`의 `reliability`, `/admin` 상단 카드). 남은 것은 **자동 통보**다.
+   지금은 사람이 화면을 열어봐야 알 수 있다. `checks.reliabilityHealthy`를
+   외부 모니터가 폴링하거나, 파이프라인이 저하를 감지했을 때 운영자에게
+   메일을 보내는 방식이 후보다. 게이트 10.
 3. **회귀 테스트 정비** — 현재 테스트는 순수 함수 단위 테스트 + 스모크 테스트뿐이다.
    Deal Engine 통합 경로에 대한 회귀 테스트가 없다 (지시서 STEP 10 미완).
 4. **raw observation 정리 잡** — 90일 보존 정책이 문서에만 있고 구현되지 않았다.

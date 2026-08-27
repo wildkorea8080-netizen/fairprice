@@ -1,6 +1,31 @@
 import Link from "next/link";
 import { getAdminDashboardOverview } from "@/lib/admin-dashboard";
 import { formatKoreanPrice } from "@/lib/deal-products";
+import {
+  formatFailureRate,
+  type ReliabilityStatus,
+} from "@/lib/operational-health";
+import { getReliabilitySnapshot } from "@/lib/reliability";
+
+const RELIABILITY_TONES: Record<ReliabilityStatus, string> = {
+  critical: "border-rose-200 bg-rose-50 text-rose-900",
+  degraded: "border-amber-200 bg-amber-50 text-amber-900",
+  healthy: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  unknown: "border-slate-200 bg-white text-slate-900",
+};
+
+const RELIABILITY_TITLES: Record<ReliabilityStatus, string> = {
+  critical: "실패가 반복되고 있습니다",
+  degraded: "일부 작업이 실패하고 있습니다",
+  healthy: "최근 24시간 정상",
+  unknown: "판단할 표본이 부족합니다",
+};
+
+const RELIABILITY_LABELS = {
+  collectionJobs: "상품 수집",
+  cronRuns: "자동화 실행",
+  notifications: "알림 발송",
+} as const;
 
 function formatDate(date: Date | null) {
   if (!date) {
@@ -106,6 +131,7 @@ export default async function AdminDashboardPage() {
   }
 
   const latestCron = overview.latestCronRun;
+  const reliability = await getReliabilitySnapshot();
 
   return (
     <div className="grid gap-6">
@@ -137,6 +163,49 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
       </section>
+
+      {reliability ? (
+        <section
+          className={`rounded-lg border p-6 shadow-sm ${
+            RELIABILITY_TONES[reliability.status]
+          }`}
+        >
+          <p className="text-sm font-bold">
+            최근 {reliability.windowHours}시간 실패율
+          </p>
+          <h2 className="mt-1 text-2xl font-bold">
+            {RELIABILITY_TITLES[reliability.status]}
+          </h2>
+          {reliability.reasons.length > 0 ? (
+            <ul className="mt-2 list-disc pl-5 text-sm font-semibold">
+              {reliability.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
+          <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+            {(
+              Object.keys(RELIABILITY_LABELS) as (keyof typeof RELIABILITY_LABELS)[]
+            ).map((name) => {
+              const signal = reliability.signals[name];
+
+              return (
+                <div key={name}>
+                  <dt className="text-sm font-semibold opacity-80">
+                    {RELIABILITY_LABELS[name]}
+                  </dt>
+                  <dd className="mt-1 text-2xl font-bold">
+                    {formatFailureRate(signal.failureRate)}
+                  </dd>
+                  <dd className="text-xs opacity-70">
+                    실패 {signal.failed}건 / 전체 {signal.total}건
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="활성 상품" value={`${overview.trackedProducts}개`} />

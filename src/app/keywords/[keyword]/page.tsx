@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
 import { getDealProducts } from "@/lib/deal-products";
+import { getKeywordSeoEligibility } from "@/lib/seo/keyword-indexability";
 import {
   createBreadcrumbJsonLd,
   createProductItemListJsonLd,
@@ -43,6 +44,10 @@ export async function generateMetadata({
   const title = `${keywordPage.keyword} 쿠팡 특가`;
   const description = `${keywordPage.keyword} 관련 쿠팡 할인 상품, 가격 추적 정보, 특가 알림 대상을 페어프라이스에서 확인하세요.`;
 
+  // The page stays reachable and keeps working; it just asks not to be indexed
+  // until it has products to show. Collection re-qualifies it on its own.
+  const eligible = getKeywordSeoEligibility(keywordPage).eligible;
+
   return {
     alternates: {
       canonical: url,
@@ -55,6 +60,10 @@ export async function generateMetadata({
       title,
       type: "website",
       url,
+    },
+    robots: {
+      follow: true,
+      index: eligible,
     },
     title,
   };

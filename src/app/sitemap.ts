@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { categories, products } from "@/data/catalog";
 import { getAppUrl } from "@/lib/app-config";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
+import { getKeywordSeoEligibility } from "@/lib/seo/keyword-indexability";
 import { getProductSeoEligibility } from "@/lib/seo/product-indexability";
 import { getKeywordPath, getSeoKeywordPages } from "@/lib/seo-keywords";
 
@@ -122,12 +123,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       (item) => !databaseCategorySlugs.has(item.url.split("/categories/")[1]),
     ),
     ...databaseCategoryUrls,
-    ...keywordPages.map((keywordPage) => ({
-      changeFrequency: "daily" as const,
-      lastModified: keywordPage.updatedAt,
-      priority: keywordPage.productCount > 0 ? 0.75 : 0.55,
-      url: `${appUrl}/keywords/${getKeywordPath(keywordPage.keyword)}`,
-    })),
+    // Keyword pages with no products carry two sentences saying so. Lowering
+    // their priority was not enough: a hundred near-empty URLs is what a
+    // crawler sees first on a domain it has indexed nothing from.
+    ...keywordPages
+      .filter((keywordPage) => getKeywordSeoEligibility(keywordPage).eligible)
+      .map((keywordPage) => ({
+        changeFrequency: "daily" as const,
+        lastModified: keywordPage.updatedAt,
+        priority: 0.75,
+        url: `${appUrl}/keywords/${getKeywordPath(keywordPage.keyword)}`,
+      })),
     // Sample catalog entries are demo fixtures for a database-less deployment.
     // The product page marks them noindex via the same eligibility check, so
     // listing them here submitted URLs to search engines that the pages

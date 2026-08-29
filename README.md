@@ -14,6 +14,7 @@ Read these before changing anything:
 - [`AGENTS.md`](./AGENTS.md) - conventions and verification gates for coding agents.
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Coolify release flow, cron setup, production gate.
 - [`docs/SERVER_MIGRATION.md`](./docs/SERVER_MIGRATION.md) - runbook for moving the service to a new VPS.
+- [`docs/BUSINESS_PLAN.md`](./docs/BUSINESS_PLAN.md) - commercialization diagnosis, positioning, and phased roadmap.
 
 ## Stack
 

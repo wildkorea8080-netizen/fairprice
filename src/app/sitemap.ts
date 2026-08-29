@@ -128,11 +128,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: keywordPage.productCount > 0 ? 0.75 : 0.55,
       url: `${appUrl}/keywords/${getKeywordPath(keywordPage.keyword)}`,
     })),
-    ...products.map((product) => ({
-      changeFrequency: "hourly" as const,
-      priority: 0.8,
-      url: `${appUrl}/products/${product.slug}`,
-    })).filter((item) => !databaseSlugs.has(item.url.split("/products/")[1])),
+    // Sample catalog entries are demo fixtures for a database-less deployment.
+    // The product page marks them noindex via the same eligibility check, so
+    // listing them here submitted URLs to search engines that the pages
+    // themselves refuse - a contradictory signal that only spends crawl budget.
+    ...products
+      .filter(
+        (product) =>
+          getProductSeoEligibility({
+            // The sample type carries no image and no observation history at
+            // all, which is itself a reason these never qualify.
+            imageUrl: null,
+            lastCheckedAt: null,
+            observedSamples: 0,
+            price: product.price,
+            source: "sample",
+            title: product.title,
+          }).eligible,
+      )
+      .map((product) => ({
+        changeFrequency: "hourly" as const,
+        priority: 0.8,
+        url: `${appUrl}/products/${product.slug}`,
+      }))
+      .filter((item) => !databaseSlugs.has(item.url.split("/products/")[1])),
     ...databaseProductUrls,
   ];
 }

@@ -6,6 +6,7 @@ import { isLegalConfigReady } from "@/lib/legal-config";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
 import { getAnalyticsConfig } from "@/lib/analytics";
+import { getCollectionProgress } from "@/lib/collection-progress";
 import { isReliabilityHealthy } from "@/lib/operational-health";
 import { getReliabilitySnapshot } from "@/lib/reliability";
 
@@ -129,30 +130,51 @@ async function getDealEngineHealth(databaseReachable: boolean) {
       activeDeals: 0,
       analyzedProducts: 0,
       collecting: 0,
+      collectionProgress: {
+        observationsPerPriorityProduct: 0,
+        projectedDaysToReliable: null,
+        status: "unknown" as const,
+      },
       dealEvents: 0,
       fresh: false,
       latestAnalysisAt: null,
       minutesSinceLatestAnalysis: null,
+      preliminary: 0,
       reliable: 0,
       status: "unavailable",
     };
   }
 
   try {
-    const [analyzedProducts, confidenceGroups, dealEvents, activeDeals, latest] =
-      await Promise.all([
-        prisma.productDealAnalytics.count(),
-        prisma.productDealAnalytics.groupBy({
-          by: ["confidence"],
-          _count: { _all: true },
-        }),
-        prisma.dealEvent.count(),
-        prisma.deal.count({ where: { status: "ACTIVE" } }),
-        prisma.productDealAnalytics.findFirst({
-          orderBy: { calculatedAt: "desc" },
-          select: { calculatedAt: true },
-        }),
-      ]);
+    const observationCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [
+      analyzedProducts,
+      confidenceGroups,
+      dealEvents,
+      activeDeals,
+      latest,
+      observationsLast24h,
+      prioritisedProducts,
+    ] = await Promise.all([
+      prisma.productDealAnalytics.count(),
+      prisma.productDealAnalytics.groupBy({
+        by: ["confidence"],
+        _count: { _all: true },
+      }),
+      prisma.dealEvent.count(),
+      prisma.deal.count({ where: { status: "ACTIVE" } }),
+      prisma.productDealAnalytics.findFirst({
+        orderBy: { calculatedAt: "desc" },
+        select: { calculatedAt: true },
+      }),
+      prisma.priceObservation.count({
+        where: { checkedAt: { gte: observationCutoff } },
+      }),
+      // Tiers A and B are the products the refresh budget is aimed at.
+      prisma.productTrackingPolicy.count({
+        where: { isEnabled: true, tier: { in: ["A", "B"] } },
+      }),
+    ]);
     const countConfidence = (
       value: "COLLECTING" | "PRELIMINARY" | "RELIABLE",
     ) =>
@@ -168,18 +190,30 @@ async function getDealEngineHealth(databaseReachable: boolean) {
         analysisAgeMs <= DEAL_ANALYSIS_FRESHNESS_MS,
     );
 
+    const preliminary = countConfidence("PRELIMINARY");
+    const reliable = countConfidence("RELIABLE");
+
     return {
       activeDeals,
       analyzedProducts,
       collecting: countConfidence("COLLECTING"),
+      // Answers whether the prioritised products are being observed often
+      // enough to ever reach RELIABLE, rather than only how many already have.
+      collectionProgress: getCollectionProgress({
+        observationsLast24h,
+        preliminary,
+        prioritisedProducts,
+        reliable,
+      }),
       dealEvents,
       fresh,
+      preliminary,
       latestAnalysisAt: latestAnalysisAt?.toISOString() ?? null,
       minutesSinceLatestAnalysis:
         analysisAgeMs === null
           ? null
           : Math.max(0, Math.floor(analysisAgeMs / 60000)),
-      reliable: countConfidence("RELIABLE"),
+      reliable,
       status: fresh ? "ready" : analyzedProducts > 0 ? "stale" : "collecting",
     };
   } catch {
@@ -187,10 +221,16 @@ async function getDealEngineHealth(databaseReachable: boolean) {
       activeDeals: 0,
       analyzedProducts: 0,
       collecting: 0,
+      collectionProgress: {
+        observationsPerPriorityProduct: 0,
+        projectedDaysToReliable: null,
+        status: "unknown" as const,
+      },
       dealEvents: 0,
       fresh: false,
       latestAnalysisAt: null,
       minutesSinceLatestAnalysis: null,
+      preliminary: 0,
       reliable: 0,
       status: "unavailable",
     };

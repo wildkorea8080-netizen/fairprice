@@ -241,9 +241,13 @@ The pipeline runs these steps in order:
 1. `discover`: refresh Coupang candidates at most every six hours and automatically
    promote up to three trusted candidates per run, capped at 100 active rules.
 2. `click-keywords`: create keyword candidates from affiliate click signals.
-3. `collect`: enqueue active collection rules and process pending collection jobs.
-4. `alerts`: evaluate user alert rules against tracked products.
-5. `send`: send pending notifications through Resend, or dry-run when email is not configured.
+3. `collect`: enqueue active collection rules (discovery, every six hours per
+   rule) and process pending collection jobs.
+4. `refresh`: re-observe the highest-priority tracked products that are due,
+   up to `refreshBudget` per run (default 25). This is what builds per-product
+   price history depth; keyword jobs only discover.
+5. `alerts`: evaluate user alert rules against tracked products.
+6. `send`: send pending notifications through Resend, or dry-run when email is not configured.
 
 Recommended scheduler setup:
 

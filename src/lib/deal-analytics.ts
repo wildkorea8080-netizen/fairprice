@@ -389,6 +389,7 @@ export async function refreshVariantDealAnalytics(
         ? []
         : [{ checkedAt: observation.checkedAt, price: observation.price }],
     ),
+    dealScoreThreshold: activeConfig.domainConfig.thresholds.deal,
     highDealScore: activeConfig.domainConfig.thresholds.special,
     offerId,
     previousPrice: analytics.previousPrice ?? undefined,

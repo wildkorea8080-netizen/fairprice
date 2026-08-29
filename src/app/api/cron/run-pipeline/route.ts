@@ -14,6 +14,7 @@ const ALLOWED_STEPS = new Set<CronPipelineStep>([
   "discover",
   "click-keywords",
   "collect",
+  "refresh",
   "alerts",
   "send",
 ]);
@@ -103,6 +104,12 @@ export async function GET(request: Request) {
     1,
     100,
   );
+  const refreshBudget = parseBoundedInteger(
+    url.searchParams.get("refreshBudget"),
+    25,
+    1,
+    100,
+  );
   const sendDryRun = parseBoolean(url.searchParams.get("sendDryRun"));
   const steps = parseSteps(url.searchParams.get("steps"));
 
@@ -111,6 +118,7 @@ export async function GET(request: Request) {
       batchSize,
       categoryId,
       clickKeywordLimit,
+      refreshBudget,
       sendDryRun,
       steps,
     });

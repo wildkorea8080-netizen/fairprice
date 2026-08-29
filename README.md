@@ -133,7 +133,7 @@ npm run email:test -- --to=you@example.com
 The protected `/api/cron/run-pipeline` endpoint connects the operational flow:
 
 ```text
-discover keywords -> create click keyword candidates -> collect products -> evaluate alerts -> send notifications
+discover keywords -> create click keyword candidates -> collect products -> refresh tracked products -> evaluate alerts -> send notifications
 ```
 
 Register this endpoint with a server cron, Vercel Cron, or another scheduler:

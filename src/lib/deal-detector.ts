@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import type { DataConfidence, Prisma } from "@prisma/client";
+import { getDealActivationTier } from "@/modules/deal-engine/domain/deal-activation";
 import {
   DEFAULT_DEAL_DETECTION_CONFIG,
   detectDealEvents,
@@ -45,6 +46,8 @@ export async function detectAndPersistOfferDeals(
     currentPrice: number;
     history: Array<{ checkedAt: Date; price: number }>;
     highDealScore: number;
+    /** Score floor for candidate activation. Comes from config.thresholds.deal. */
+    dealScoreThreshold: number;
     offerId: string;
     previousPrice?: number;
     score: number;
@@ -90,8 +93,16 @@ export async function detectAndPersistOfferDeals(
       });
     }),
   );
-  const canActivate =
-    input.score >= input.highDealScore && input.confidence !== "COLLECTING";
+  // Two-tier activation. The old single rule (score >= special with any
+  // non-COLLECTING confidence) was unsatisfiable for PRELIMINARY data, whose
+  // score cap sits below the special threshold - so nothing ever activated.
+  const activationTier = getDealActivationTier({
+    candidateThreshold: input.dealScoreThreshold,
+    confidence: input.confidence,
+    confirmedThreshold: input.highDealScore,
+    score: input.score,
+  });
+  const canActivate = activationTier !== null;
 
   if (!canActivate) {
     await tx.deal.updateMany({

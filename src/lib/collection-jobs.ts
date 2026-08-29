@@ -106,24 +106,28 @@ export async function enqueueCollectionJobs({
     return 0;
   }
 
+  // Keyword jobs are now discovery only: each rule runs on a fixed interval to
+  // find what currently ranks for its keyword. Re-observing specific tracked
+  // products is the refresh step's job. Previously this function both gated on
+  // per-product policies AND advanced their nextCheckAt - even though a
+  // keyword's top-10 usually no longer contained the products whose schedule
+  // it was consuming. That silently starved most of the catalog of
+  // observations while looking busy.
   const now = new Date();
-  const fallbackIntervalMs = 6 * 60 * 60 * 1000;
+  const discoveryIntervalMs = 6 * 60 * 60 * 1000;
   const candidates = rules.flatMap((rule) => {
+    const latestFinishedAt = rule.jobs[0]?.finishedAt;
+
+    if (
+      latestFinishedAt &&
+      now.getTime() - latestFinishedAt.getTime() < discoveryIntervalMs
+    ) {
+      return [];
+    }
+
     const policies = rule.products.flatMap(({ product }) =>
       product.variant?.trackingPolicy ? [product.variant.trackingPolicy] : [],
     );
-    const duePolicies = policies.filter(
-      (policy) => policy.isEnabled && policy.nextCheckAt <= runAfter,
-    );
-    const latestFinishedAt = rule.jobs[0]?.finishedAt;
-    const fallbackDue =
-      policies.length === 0 &&
-      (!latestFinishedAt ||
-        now.getTime() - latestFinishedAt.getTime() >= fallbackIntervalMs);
-
-    if (duePolicies.length === 0 && !fallbackDue) {
-      return [];
-    }
 
     return [
       {
@@ -131,11 +135,10 @@ export async function enqueueCollectionJobs({
         keyword: rule.keyword,
         limit: rule.limit,
         priority:
-          duePolicies.length > 0
-            ? Math.max(...duePolicies.map((policy) => policy.priorityScore))
+          policies.length > 0
+            ? Math.max(...policies.map((policy) => policy.priorityScore))
             : Math.max(100 - rule.minDiscountRate, 1),
         runAfter,
-        duePolicies,
       },
     ];
   });
@@ -153,24 +156,6 @@ export async function enqueueCollectionJobs({
       runAfter: candidate.runAfter,
     })),
   });
-
-  const scheduledPolicies = new Map(
-    candidates.flatMap(({ duePolicies }) =>
-      duePolicies.map((policy) => [policy.id, policy]),
-    ),
-  );
-
-  await Promise.all(
-    [...scheduledPolicies.values()].map((policy) =>
-      prisma.productTrackingPolicy.update({
-        data: {
-          lastScheduledAt: now,
-          nextCheckAt: nextRunDate(policy.intervalMinutes),
-        },
-        where: { id: policy.id },
-      }),
-    ),
-  );
 
   return candidates.length;
 }

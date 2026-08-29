@@ -3,20 +3,10 @@ import "server-only";
 import type { Prisma, TrackingTier } from "@prisma/client";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 import { getTrackingConfidenceBoost } from "@/modules/deal-engine/domain/tracking-priority";
-
-const TIER_INTERVALS: Record<TrackingTier, number> = {
-  A: 60,
-  B: 180,
-  C: 720,
-  D: 10_080,
-};
-
-function getTier(score: number): TrackingTier {
-  if (score >= 60) return "A";
-  if (score >= 35) return "B";
-  if (score >= 15) return "C";
-  return "D";
-}
+import {
+  getTrackingIntervalMinutes,
+  getTrackingTierByRank,
+} from "@/modules/deal-engine/domain/tracking-tiers";
 
 function calculatePolicy(product: {
   _count: { alertRules: number; clickLogs: number; favoriteUsers: number };
@@ -84,15 +74,10 @@ function calculatePolicy(product: {
     score += confidenceBoost;
   }
 
-  const priorityScore = Math.min(score, 100);
-  const tier = getTier(priorityScore);
-
   return {
-    intervalMinutes: TIER_INTERVALS[tier],
     isEnabled: product.isActive,
-    priorityScore,
+    priorityScore: Math.min(score, 100),
     reasons: reasons as Prisma.InputJsonObject,
-    tier,
   };
 }
 
@@ -122,20 +107,41 @@ export async function refreshTrackingPolicies() {
   });
   const counts: Record<TrackingTier, number> = { A: 0, B: 0, C: 0, D: 0 };
 
-  for (const product of products) {
-    if (!product.variant) continue;
+  // Tiers are assigned by rank, not by absolute score. With little engagement
+  // data the absolute scores compress into one band and every product lands in
+  // the same middle tier - which is how 1,296 products ended up sharing one
+  // thin collection budget and none reached RELIABLE. Ranking always spends
+  // the budget on the relative top, however compressed the scores are.
+  const scored = products
+    .flatMap((product) =>
+      product.variant
+        ? [{ policy: calculatePolicy(product), variantId: product.variant.id }]
+        : [],
+    )
+    .sort(
+      (left, right) =>
+        right.policy.priorityScore - left.policy.priorityScore ||
+        left.variantId.localeCompare(right.variantId),
+    );
 
-    const policy = calculatePolicy(product);
-    counts[policy.tier] += 1;
+  for (const [index, { policy, variantId }] of scored.entries()) {
+    const tier = getTrackingTierByRank(index + 1);
+    const data = {
+      ...policy,
+      intervalMinutes: getTrackingIntervalMinutes(tier),
+      reasons: { ...policy.reasons, rank: index + 1 } as Prisma.InputJsonObject,
+      tier,
+    };
+    counts[tier] += 1;
     await prisma.productTrackingPolicy.upsert({
       create: {
-        ...policy,
-        productVariantId: product.variant.id,
+        ...data,
+        productVariantId: variantId,
       },
-      update: policy,
-      where: { productVariantId: product.variant.id },
+      update: data,
+      where: { productVariantId: variantId },
     });
   }
 
-  return { counts, updated: products.length };
+  return { counts, updated: scored.length };
 }

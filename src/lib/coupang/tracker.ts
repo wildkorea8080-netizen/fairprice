@@ -590,6 +590,48 @@ export async function collectCoupangKeyword(
   };
 }
 
+export type TrackedProductRefreshStatus =
+  | "changed"
+  | "created"
+  | "not_found"
+  | "unchanged";
+
+/**
+ * Re-observes one specific tracked product by searching Coupang for its title
+ * and persisting only the result whose external key matches exactly.
+ *
+ * Keyword-rule collection only ever observes whatever currently ranks in a
+ * keyword's top results, so a product that slips out of them is never checked
+ * again - which is why the average product had a single-digit observation
+ * count. This is the depth half of depth-over-breadth: it deepens history for
+ * products we already track and deliberately creates nothing new, so a refresh
+ * can never widen the catalog it is trying to deepen.
+ */
+export async function refreshTrackedProduct(target: {
+  coupangExternalId: string;
+  title: string;
+}): Promise<{ status: TrackedProductRefreshStatus }> {
+  if (!isDatabaseConfigured()) {
+    throw new Error("DATABASE_URL이 설정되지 않아 상품을 갱신할 수 없습니다.");
+  }
+
+  // Long pasted titles ("[본품+리필] ..., 200g, 3개입 x2") make poor queries;
+  // the leading words identify the product well enough for it to rank.
+  const query = target.title.trim().replace(/\s+/g, " ").split(" ").slice(0, 8).join(" ");
+  const result = await searchCoupangProducts(query, MAX_COUPANG_COLLECTION_LIMIT);
+  const match = result.products
+    .map(normalizeCoupangProduct)
+    .find((candidate) => candidate.externalProductKey === target.coupangExternalId);
+
+  if (!match) {
+    return { status: "not_found" };
+  }
+
+  const persisted = await persistProduct(match, new Date(), undefined, result.requestId);
+
+  return { status: persisted.status };
+}
+
 function getEnvironmentCollectionRules() {
   return (process.env.COUPANG_COLLECTION_KEYWORDS ?? "")
     .split(",")

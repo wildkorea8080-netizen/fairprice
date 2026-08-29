@@ -37,10 +37,19 @@ Deal is activated.
 
 ## Activation and expiry
 
-A Hot Deal is automatically `ACTIVE` only when:
+Activation is two-tiered (`domain/deal-activation.ts`):
 
-- Deal Score reaches the active score config's `special` threshold
-- confidence is `PRELIMINARY` or `RELIABLE`
+- **CONFIRMED**: confidence is `RELIABLE` and Deal Score reaches the config's
+  `special` threshold (90 by default)
+- **CANDIDATE**: confidence is `PRELIMINARY` or `RELIABLE` and the score
+  reaches the config's `deal` threshold (80 by default)
+
+The original single rule required `special` with any non-COLLECTING
+confidence, but the PRELIMINARY score cap (89) sits below the `special`
+threshold (90), so PRELIMINARY activation was unsatisfiable and nothing ever
+activated until a product reached RELIABLE. The candidate tier sits inside the
+PRELIMINARY cap so a product with a week of history can surface while its
+confidence is stated honestly in the UI.
 
 Active deals expire after 48 hours unless a later qualifying observation
 refreshes the same daily deal. When the score drops below the activation rule,

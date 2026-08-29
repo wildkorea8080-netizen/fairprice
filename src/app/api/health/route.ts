@@ -5,6 +5,7 @@ import { getEmailConfig } from "@/lib/email";
 import { isLegalConfigReady } from "@/lib/legal-config";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 
+import { getAnalyticsConfig } from "@/lib/analytics";
 import { isReliabilityHealthy } from "@/lib/operational-health";
 import { getReliabilitySnapshot } from "@/lib/reliability";
 
@@ -207,6 +208,9 @@ export async function GET() {
   const coupangPartnersConfigured = areCoupangCredentialsConfigured();
   const emailConfigured = getEmailConfig().isConfigured;
   const appUrlConfigured = Boolean(process.env.NEXT_PUBLIC_APP_URL);
+  // Reports whether the analytics tag will render. Without this, a missing tag
+  // is indistinguishable from undeployed code: both look like an empty <head>.
+  const analyticsConfigured = Boolean(getAnalyticsConfig());
   const cronSecretConfigured = Boolean(
     process.env.CRON_SECRET?.trim() &&
       process.env.CRON_SECRET.trim().length >= 32,
@@ -224,6 +228,7 @@ export async function GET() {
   return Response.json(
     {
       checks: {
+        analytics: analyticsConfigured,
         appUrl: appUrlConfigured,
         coupangPartners: coupangPartnersConfigured,
         cronSecret: cronSecretConfigured,

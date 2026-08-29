@@ -116,6 +116,8 @@ GA·Umami·Plausible 등 어떤 분석 도구도 없다. 방문자가 몇 명인
    `RELIABLE + 90점 이상 = "확정 특가"` 유지. 89<90 모순을 해소하면서
    신뢰도 구분은 사용자에게 정직하게 표시한다.
 3. **Umami 설치** (같은 Coolify 서버에 무료 자체 호스팅) → 측정 시작.
+   앱 쪽 연동은 완료(`UMAMI_SCRIPT_URL`, `UMAMI_WEBSITE_ID`). 두 값이 채워지면
+   태그가 자동으로 렌더링되고, 비어 있으면 아무것도 넣지 않는다.
 4. **GSC·네이버 서치어드바이저 등록 확인 및 사이트맵 제출.**
 5. 운영 마무리: UptimeRobot(`checks.reliabilityHealthy` 폴링), S3 백업, 구서버 폐기.
 

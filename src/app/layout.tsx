@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { getAnalyticsConfig } from "@/lib/analytics";
 import { getAppUrl } from "@/lib/app-config";
 import "./globals.css";
 
@@ -51,8 +52,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read per request rather than at module load so the tag appears on the next
+  // restart after Coolify gets the values, without a rebuild.
+  const analytics = getAnalyticsConfig();
+
   return (
     <html lang="ko" className="h-full antialiased">
+      <head>
+        {analytics ? (
+          // Umami is cookieless and stores no personal data, so this needs no
+          // consent banner. defer keeps it off the critical path.
+          <script
+            data-website-id={analytics.websiteId}
+            defer
+            src={analytics.scriptUrl}
+          />
+        ) : null}
+      </head>
       <body className="flex min-h-full flex-col">
         <SiteHeader />
         {children}

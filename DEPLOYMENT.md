@@ -167,6 +167,24 @@ and `checks.priceTrackingFresh` to detect stale product price collection. The
 `automation` and `priceTracking` objects include the latest timestamps and
 elapsed minutes for external monitors.
 
+## Analytics
+
+Traffic is measured with self-hosted Umami. Add it as a separate Coolify
+resource, then set two variables on the Fairprice application:
+
+```text
+UMAMI_SCRIPT_URL   https://<umami-domain>/script.js
+UMAMI_WEBSITE_ID   the id Umami issues when the site is registered
+```
+
+Both appear in the served HTML and are not secrets. They deliberately omit the
+`NEXT_PUBLIC_` prefix: the tag is rendered by a server component, so the values
+are read at runtime and a change takes a restart rather than a rebuild.
+
+With either value missing, no analytics tag is rendered at all - a
+half-configured tag reports nothing while looking installed. Umami is
+cookieless and stores no personal data, so it needs no consent banner.
+
 ## Search Engine Indexing
 
 Set `NEXT_PUBLIC_APP_URL` to the public HTTPS domain before submitting the site

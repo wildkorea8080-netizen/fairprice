@@ -7,7 +7,9 @@ import {
 } from "@/app/alerts/actions";
 import { getProductBySlug } from "@/data/catalog";
 import { describePriceGap } from "@/lib/price-gap";
+import { getVapidPublicKey } from "@/lib/push-config";
 import { PriceHistoryChart } from "@/components/price-history-chart";
+import { PushSubscribeButton } from "@/components/push-subscribe-button";
 import { PriceChangeTimeline } from "@/components/price-change-timeline";
 import { ProductCard } from "@/components/product-card";
 import { getAppUrl } from "@/lib/app-config";
@@ -297,6 +299,9 @@ export default async function ProductPage({
     : null;
   const verdict = dealInsight ? verdictCopy[dealInsight.verdict] : verdictCopy.collecting;
   const suggestedTargetPrice = Math.max(Math.floor(product.price * 0.95), 1);
+  // Null unless VAPID is configured, which hides the button rather than
+  // offering one that fails when pressed.
+  const vapidPublicKey = getVapidPublicKey();
   const statusMessage = status ? statusMessages[status] : "";
   const jsonLd = getProductJsonLd(product);
   const appUrl = getAppUrl();
@@ -464,6 +469,20 @@ export default async function ProductPage({
                 알림 등록
               </button>
             </form>
+
+            {vapidPublicKey ? (
+              <div className="mt-5 border-t border-slate-200 pt-5">
+                <p className="mb-3 text-sm leading-6 text-slate-600">
+                  회원가입 없이 이 상품의 가격 알림을 받을 수 있습니다.
+                  브라우저 알림은 언제든 끌 수 있습니다.
+                </p>
+                <PushSubscribeButton
+                  maxPrice={suggestedTargetPrice}
+                  productSlug={product.slug}
+                  vapidPublicKey={vapidPublicKey}
+                />
+              </div>
+            ) : null}
           </section>
         </div>
       </section>

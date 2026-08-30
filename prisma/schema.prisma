@@ -210,8 +210,37 @@ model User {
   adminProductNotes   AdminProductNote[]    @relation("AdminProductNotes")
   clickLogs           ClickLog[]
   passwordResetTokens PasswordResetToken[]
+  pushSubscriptions   PushSubscription[]
 
   @@map("users")
+}
+
+/// Browser push endpoints. userId is nullable on purpose: web push is the one
+/// alert channel that works without an account, which is the point of adding
+/// it - email alerts require signing up first.
+model PushSubscription {
+  id           String    @id @default(cuid())
+  endpoint     String    @unique
+  p256dh       String
+  auth         String
+  userId       String?   @map("user_id")
+  /// Keyword the anonymous subscriber asked about, when they subscribed from a
+  /// keyword or product page rather than from their account.
+  keyword      String?
+  productId    String?   @map("product_id")
+  maxPrice     Int?      @map("max_price")
+  isActive     Boolean   @default(true) @map("is_active")
+  failureCount Int       @default(0) @map("failure_count")
+  lastSentAt   DateTime? @map("last_sent_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, keyword])
+  @@index([productId])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model PasswordResetToken {
@@ -593,6 +622,7 @@ model Product {
   clickLogs           ClickLog[]
   collectionRules     CollectionRuleProduct[]
   discoveries         ProductDiscovery[]
+  pushSubscriptions   PushSubscription[]
   variant             ProductVariant?
 
   @@index([categoryId, isActive])

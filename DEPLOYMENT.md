@@ -167,6 +167,28 @@ and `checks.priceTrackingFresh` to detect stale product price collection. The
 `automation` and `priceTracking` objects include the latest timestamps and
 elapsed minutes for external monitors.
 
+## Web Push
+
+Deal alerts can reach a visitor without an account. Generate a VAPID key pair
+once and set both halves on the application:
+
+```bash
+node -e "console.log(require('web-push').generateVAPIDKeys())"
+```
+
+```text
+VAPID_PUBLIC_KEY    served to browsers, not a secret
+VAPID_PRIVATE_KEY   signs push requests, is a secret
+```
+
+`FAIRPRICE_CONTACT_EMAIL` doubles as the VAPID subject, so it must already be
+set. With any of the three missing no subscribe button is rendered, rather than
+one that fails when pressed.
+
+The service worker is served from `/sw.js` by a route handler, like robots.txt
+and ads.txt, because this project has no `public/` directory. Push requires
+HTTPS, which production already has; `localhost` is exempt for development.
+
 ## Analytics
 
 Traffic is measured with self-hosted Umami. Add it as a separate Coolify

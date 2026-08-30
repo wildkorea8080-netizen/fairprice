@@ -291,6 +291,9 @@ The pipeline runs these steps in order:
 7. `push`: send browser push for newly activated deals to matching subscribers.
    Runs as its own step because deal detection happens inside a database
    transaction, and a push is a network call to an external service.
+8. `telegram`: post newly activated deals to the Telegram channel, when
+   `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set. A failed post is
+   retried on the next run until the deal expires.
 
 Recommended scheduler setup:
 

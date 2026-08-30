@@ -408,12 +408,16 @@ model Deal {
   /// When browser push for this deal was dispatched. Null means it has not
   /// been sent, which is how the push step finds work without a queue table.
   pushedAt       DateTime?  @map("pushed_at")
+  /// When this deal was posted to the Telegram channel. Same pattern as
+  /// pushedAt: null means not yet, stamped even when posting is skipped.
+  telegramPostedAt DateTime? @map("telegram_posted_at")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
   offer          Offer      @relation(fields: [offerId], references: [id], onDelete: Cascade)
   primaryEvent   DealEvent? @relation("PrimaryDealEvent", fields: [primaryEventId], references: [id], onDelete: SetNull)
 
   @@index([status, pushedAt])
+  @@index([status, telegramPostedAt])
   @@index([status, rankScore, startsAt])
   @@index([offerId, status])
   @@map("deals")

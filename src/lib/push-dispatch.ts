@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getUnannouncedDeals } from "@/lib/deal-announcements";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
 import { getVapidConfig } from "@/lib/push-config";
 import { shouldPushDeal } from "@/lib/push-matching";
@@ -44,27 +45,17 @@ export async function dispatchDealPush(): Promise<PushDispatchSummary> {
   }
 
   const now = new Date();
-  const deals = await prisma.deal.findMany({
-    include: {
-      offer: {
-        include: {
-          dealEntity: {
-            include: { shoppingVariant: { select: { productId: true } } },
-          },
-        },
-      },
-    },
-    orderBy: { rankScore: "desc" },
-    take: DEAL_BATCH,
-    where: {
-      pushedAt: null,
-      startsAt: { lte: now },
-      status: "ACTIVE",
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    },
+  const deals = await getUnannouncedDeals("pushedAt", DEAL_BATCH, async (dealId) => {
+    // The offer has no shopping product behind it, so there is nothing to
+    // link a subscriber to. Stamp it so it stops being reconsidered.
+    summary.skipped += 1;
+    await prisma.deal.update({
+      data: { pushedAt: now },
+      where: { id: dealId },
+    });
   });
 
-  summary.deals = deals.length;
+  summary.deals = deals.length + summary.skipped;
 
   if (deals.length === 0) {
     return summary;
@@ -85,33 +76,6 @@ export async function dispatchDealPush(): Promise<PushDispatchSummary> {
   });
 
   for (const deal of deals) {
-    const productId = deal.offer.dealEntity.shoppingVariant?.productId;
-
-    if (!productId) {
-      // The offer has no shopping product behind it, so there is nothing to
-      // link a subscriber to. Stamp it so it stops being reconsidered.
-      summary.skipped += 1;
-      await prisma.deal.update({
-        data: { pushedAt: now },
-        where: { id: deal.id },
-      });
-      continue;
-    }
-
-    const product = await prisma.product.findUnique({
-      select: { currentPrice: true, slug: true, title: true },
-      where: { id: productId },
-    });
-
-    if (!product) {
-      summary.skipped += 1;
-      await prisma.deal.update({
-        data: { pushedAt: now },
-        where: { id: deal.id },
-      });
-      continue;
-    }
-
     const targets = subscriptions.filter((subscription) =>
       shouldPushDeal(
         {
@@ -120,9 +84,9 @@ export async function dispatchDealPush(): Promise<PushDispatchSummary> {
           productId: subscription.productId,
         },
         {
-          price: product.currentPrice,
-          productId,
-          title: product.title,
+          price: deal.price,
+          productId: deal.productId,
+          title: deal.title,
         },
       ),
     );
@@ -131,9 +95,9 @@ export async function dispatchDealPush(): Promise<PushDispatchSummary> {
 
     if (targets.length > 0) {
       const result = await sendDealPush(targets, {
-        price: product.currentPrice,
-        productSlug: product.slug,
-        title: deal.headline ?? product.title,
+        price: deal.price,
+        productSlug: deal.slug,
+        title: deal.headline ?? deal.title,
       });
 
       summary.removed += result.removed;

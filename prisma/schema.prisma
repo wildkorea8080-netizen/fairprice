@@ -405,11 +405,15 @@ model Deal {
   startsAt       DateTime   @default(now()) @map("starts_at")
   expiresAt      DateTime?  @map("expires_at")
   activatedAt    DateTime?  @map("activated_at")
+  /// When browser push for this deal was dispatched. Null means it has not
+  /// been sent, which is how the push step finds work without a queue table.
+  pushedAt       DateTime?  @map("pushed_at")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
   offer          Offer      @relation(fields: [offerId], references: [id], onDelete: Cascade)
   primaryEvent   DealEvent? @relation("PrimaryDealEvent", fields: [primaryEventId], references: [id], onDelete: SetNull)
 
+  @@index([status, pushedAt])
   @@index([status, rankScore, startsAt])
   @@index([offerId, status])
   @@map("deals")

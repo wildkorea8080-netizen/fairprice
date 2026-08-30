@@ -288,6 +288,9 @@ The pipeline runs these steps in order:
    price history depth; keyword jobs only discover.
 5. `alerts`: evaluate user alert rules against tracked products.
 6. `send`: send pending notifications through Resend, or dry-run when email is not configured.
+7. `push`: send browser push for newly activated deals to matching subscribers.
+   Runs as its own step because deal detection happens inside a database
+   transaction, and a push is a network call to an external service.
 
 Recommended scheduler setup:
 

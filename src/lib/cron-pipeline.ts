@@ -9,6 +9,7 @@ import {
 } from "@/lib/collection-jobs";
 import { discoverKeywordCandidatesFromCoupang } from "@/lib/coupang/keyword-discovery";
 import { promoteTopKeywordCandidates } from "@/lib/keyword-candidates";
+import { dispatchDealPush } from "@/lib/push-dispatch";
 import { refreshDueTrackedProducts } from "@/lib/product-refresh";
 import { sendPendingNotifications } from "@/lib/notification-sender";
 import { isDatabaseConfigured, prisma } from "@/lib/prisma";
@@ -20,7 +21,8 @@ export type CronPipelineStep =
   | "collect"
   | "refresh"
   | "alerts"
-  | "send";
+  | "send"
+  | "push";
 
 export type CronPipelineOptions = {
   batchSize?: number;
@@ -46,6 +48,7 @@ const DEFAULT_STEPS: CronPipelineStep[] = [
   "refresh",
   "alerts",
   "send",
+  "push",
 ];
 const STALE_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 const DISCOVERY_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -238,6 +241,10 @@ export async function runCronPipeline(options: CronPipelineOptions = {}) {
           refreshDueTrackedProducts({ budget: options.refreshBudget }),
         ),
       );
+    }
+
+    if (steps.includes("push")) {
+      results.push(await runStep("push", dispatchDealPush));
     }
 
     if (steps.includes("alerts")) {

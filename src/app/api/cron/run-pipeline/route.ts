@@ -19,6 +19,7 @@ const ALLOWED_STEPS = new Set<CronPipelineStep>([
   "send",
   "push",
   "telegram",
+  "cleanup",
 ]);
 
 function isAuthorized(request: Request) {

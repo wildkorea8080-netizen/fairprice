@@ -294,6 +294,10 @@ The pipeline runs these steps in order:
 8. `telegram`: post newly activated deals to the Telegram channel, when
    `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set. A failed post is
    retried on the next run until the deal expires.
+9. `cleanup`: apply the 90-day raw observation retention. Priced observations
+   are deleted only when their day is covered by a daily aggregate; the
+   `keptUncovered` count in the step summary rising over time means
+   aggregation has a gap that needs attention before those rows can go.
 
 Recommended scheduler setup:
 

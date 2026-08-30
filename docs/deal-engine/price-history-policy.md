@@ -15,9 +15,14 @@ during the migration period.
 - Keep request IDs and errors for provider diagnostics
 - Do not use raw rows directly for long-range charts
 
-The first production version does not delete raw rows automatically. A cleanup
-job should only be enabled after aggregate coverage checks and database backups
-are operating reliably.
+The `cleanup` pipeline step applies this retention (enabled 2026-08-30, after
+scheduled backups and aggregates were verified in production). An expired
+successful observation is deleted only when a daily aggregate row exists for
+its offer and UTC day; expired rows that lack coverage are kept and counted in
+the step's `keptUncovered` summary, so an aggregation gap surfaces as a growing
+number rather than as silently lost history. Failures and anomalies past the
+cutoff are deleted unconditionally - they never enter aggregates and their
+diagnostic value has the same 90-day horizon.
 
 ## Compatibility history
 

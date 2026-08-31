@@ -18,6 +18,7 @@ Fairprice(`https://fairprice.kr`)는 쿠팡 상품 가격을 자동 수집·추�
 | [`docs/DEAL_ENGINE_DIRECTIVE.md`](docs/DEAL_ENGINE_DIRECTIVE.md) | 변경 불가 아키텍처 원칙 (사용자 지시) |
 | [`docs/IMPLEMENTATION_AUDIT.md`](docs/IMPLEMENTATION_AUDIT.md) | 도메인 경계와 단계별 완료 기준 |
 | [`docs/deal-engine/`](docs/deal-engine/) | Deal Score / Deal Detection / 가격 이력 정책 |
+| [`docs/NOLJAPAN_PLAN.md`](docs/NOLJAPAN_PLAN.md) | Core 구조 감사 결과와 여행 서비스 착수 게이트 |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | 배포·운영 절차 |
 | [`docs/SERVER_MIGRATION.md`](docs/SERVER_MIGRATION.md) | 서버 이전 절차서 |
 
